@@ -291,7 +291,7 @@
 		if (ids.length > 0) {
 			const loginUrl = (cfg.urls && cfg.urls.login) || '/login';
 			const regUrl = (cfg.urls && cfg.urls.register) || '/register';
-			wrap.innerHTML = `<p class="czcr-guest-msg">${cfg.i18n.login_to_keep_history.replace('Accedi', `<a href="${loginUrl}">Accedi</a>`).replace('registrati', `<a href="${regUrl}">registrazione</a>`)}</p>`;
+			wrap.innerHTML = `<p class="czcr-guest-msg">${cfg.i18n.login_to_keep_history.replace('Accedi', `<a href="${loginUrl}">Accedi</a>`).replace('registrati', `<a href="${regUrl}">registrati</a>`)}</p>`;
 		} else {
 			wrap.innerHTML = `<p class="czcr-empty">${cfg.i18n.no_items}</p>`;
 		}
