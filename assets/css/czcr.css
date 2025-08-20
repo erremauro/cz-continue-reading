@@ -1,0 +1,94 @@
+.czcr-guest-continue { 
+	display: none; 
+}
+.czcr-has-guest-readings .czcr-guest-continue { 
+	display: block; 
+}
+
+.czcr-mark-wrap { 
+	margin: 1rem 0; 
+}
+
+.czcr-mark-btn { 
+	padding: .5rem .75rem; 
+	border: 1px solid #ccc; 
+	border-radius: .5rem; 
+	background: #fff; 
+	cursor: pointer; 
+}
+
+.czcr-mark-btn[aria-pressed="true"] { 
+	background: #f0fff0; 
+	border-color: #9ccc9c; 
+}
+
+.czcr-readings .czcr-list { 
+	list-style: none; 
+	padding: 0; 
+	margin: .5rem 0 0; 
+	gap: 1rem; 
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))
+}
+
+.czcr-readings .czcr-item { 
+	display: flex;
+  	flex-direction: column;        
+  	justify-content: space-between; 
+  	gap: 0.5em;                
+  	padding: 1em;
+	background: rgba(30,30,30,1);
+	border-radius: .5em;
+	border: 1px solid rgba(60,60,60,1);
+	transition: border .3s ease;
+}
+
+.czcr-readings .czcr-item:hover {
+	cursor: default;
+}
+
+.czcr-top {
+	margin-bottom: auto;
+}
+
+.czcr-readings .czcr-link { 
+	display: inline-block;
+	margin-bottom: 0.25em;
+}
+
+.czcr-bottom {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	margin-top: 0.25em;
+}
+
+.czcr-readings .czcr-percent:before {
+	content: "Lettura ・ ";
+}
+
+.czcr-readings .czcr-percent { 
+	font-variant-numeric: tabular-nums; 
+}
+
+.czcr-readings .czcr-list-mark { 
+	margin-left: auto;
+	border: 1px solid rgba(60,60,60,1);
+	background: rgba(30,30,30,1);
+	color: #98989B;
+	border-radius: 999px;
+	padding: .4rem .8rem;
+	font-size: 14px;
+	cursor: pointer;
+	white-space: nowrap;
+	min-width: 5em;
+}
+
+.czcr-readings .czcr-list-mark:hover {
+	background: rgba(60,60,60,1);
+}
+
+.czcr-empty,.czcr-guest-msg { 
+	opacity: .8;
+	font-style: italic;
+}
