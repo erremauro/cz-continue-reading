@@ -59,6 +59,9 @@ final class CZ_Continue_Reading {
 	public function enqueue_assets() {
 		$asset_url  = plugins_url( 'assets/js/czcr.js', __FILE__ );
 		$asset_path = plugin_dir_path( __FILE__ ) . 'assets/js/czcr.js';
+		$login_url    = apply_filters( 'czcr_login_url', wp_login_url() );
+		$register_url = apply_filters( 'czcr_register_url', wp_registration_url() );
+		$home_url     = apply_filters( 'czcr_home_url', home_url( '/' ) );
 
 		wp_register_script(
 			'czcr-js',
@@ -78,11 +81,11 @@ final class CZ_Continue_Reading {
 				'loggedIn' => is_user_logged_in(),
 				'id'       => get_current_user_id(),
 			],
-			'urls'            => [
-				'login'       => wp_login_url(),
-				'register'    => wp_registration_url(),
-				'home'        => home_url( '/' ),
-			],
+			'urls' => [
+		        'login'    => esc_url_raw( $login_url ),
+		        'register' => esc_url_raw( $register_url ),
+		        'home'     => esc_url_raw( $home_url ),
+		    ],
 			'i18n'           => [
 				'mark_as_read'          => __( 'Segna come letto', 'cz-continue-reading' ),
 				'mark_as_unread'        => __( 'Segna come da leggere', 'cz-continue-reading' ),
