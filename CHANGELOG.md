@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.0] 2025-08-21
 ### Changed
 - Update the Toolbar appearance.
 - Update the message informing about reading list storage capabilities for not logged-in users.
@@ -19,5 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial Commit
 
 
-[Unreleased]: https://github.com/erremauro/cigno-zen/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/erremauro/cigno-zen/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/erremauro/cigno-zen/releases/tag/v1.2.0
 [1.1.0]: https://github.com/erremauro/cigno-zen/releases/tag/v1.1.0
