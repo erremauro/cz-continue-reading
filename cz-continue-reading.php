@@ -129,11 +129,13 @@ final class CZ_Continue_Reading {
 	}
 
 	private function localize_post_context() {
-		if ( ! is_singular() ) {
+		// Tracciamo solo i singoli ARTICOLI (post type 'post')
+		if ( ! is_singular( 'post' ) ) {
 			return null;
 		}
+
 		global $post;
-		if ( ! $post instanceof WP_Post ) {
+		if ( ! $post instanceof WP_Post || $post->post_type !== 'post' ) {
 			return null;
 		}
 
@@ -251,13 +253,23 @@ final class CZ_Continue_Reading {
 				$allowed_types = apply_filters( 'czcr_allowed_post_types', [ 'post' ] );
 				$excluded_ids  = apply_filters( 'czcr_excluded_post_ids', [] );
 
-				$items = [];
+				$items      = [];
+				$changed_any = false; // se normalizziamo qualcosa, risalviamo
+
 				foreach ( $data as $pid => $entry ) {
 					if ( ! is_array( $entry ) ) {
 						continue;
 					}
 
 					$pid = (int) $pid;
+
+					// Normalizza il record (riempie pagine, fill-forward, ricalcola overall)
+					$norm  = $this->normalize_progress_record( $entry );
+					$entry = $norm['rec'];
+					if ( $norm['changed'] ) {
+						$data[ $pid ] = $entry;
+						$changed_any  = true;
+					}
 
 					// Escludi ID specifici
 					if ( in_array( $pid, $excluded_ids, true ) ) {
@@ -270,6 +282,7 @@ final class CZ_Continue_Reading {
 						continue;
 					}
 
+					// ⚠️ IMPORTANTE: definisci PRIMA di usarle
 					$status  = isset( $entry['status'] ) ? $entry['status'] : 'reading';
 					$overall = isset( $entry['percent_overall'] ) ? (float) $entry['percent_overall'] : 0.0;
 
@@ -294,6 +307,11 @@ final class CZ_Continue_Reading {
 						'url'         => $page_url,
 						'overall_pct' => max( 0, min( 100, round( $overall ) ) ),
 					];
+				}
+
+				// Se abbiamo normalizzato almeno un record, persistiamo
+				if ( $changed_any ) {
+					update_user_meta( $user_id, self::USERMETA_KEY, $data );
 				}
 
 				if ( empty( $items ) ) {
@@ -321,7 +339,11 @@ final class CZ_Continue_Reading {
 					echo '</ul>';
 				}
 			} else {
-				echo '<p class="czcr-guest-msg" data-czcr-guest-msg>'
+				// Per ospiti: stampiamo una lista vuota che verrà popolata via JS
+				echo '<div class="czcr-guest-block">';
+				echo '  <ul class="czcr-list" data-czcr-guest-list></ul>';
+				echo '<p class="czczr-guest-msg-info">Stai visualizzando la cronologia di lettura in modalità "ospite". Questo elenco è visibile solamente su questo dispositivo e può essere perso con la cancellazione dei cookies.</p>';
+				echo '  <p class="czcr-guest-msg" data-czcr-guest-msg>'
 					. sprintf(
 						'%s <a href="%s">%s</a> %s <a href="%s">%s</a>.',
 						esc_html__( 'Accedi', 'cz-continue-reading' ),
@@ -332,6 +354,7 @@ final class CZ_Continue_Reading {
 						esc_html__( 'registrati', 'cz-continue-reading' )
 					)
 					. '</p>';
+				echo '</div>';
 			}
 			?>
 		</div>
@@ -465,6 +488,58 @@ final class CZ_Continue_Reading {
 				],
 			]
 		);
+
+		register_rest_route(
+			self::REST_NAMESPACE,
+			'/lookup',
+			[
+				'methods'             => WP_REST_Server::READABLE,
+				'permission_callback' => '__return_true', // pubblico: serve ai guest per titoli/URL
+				'args'                => [
+					'ids' => [
+						'required' => true,
+						'type'     => 'string', // es: "12,34,56"
+					],
+				],
+				'callback'            => function ( WP_REST_Request $req ) {
+					$ids_str = (string) $req->get_param( 'ids' );
+					$ids     = array_filter( array_map( 'intval', explode( ',', $ids_str ) ) );
+					$ids     = array_unique( $ids );
+					if ( empty( $ids ) ) {
+						return rest_ensure_response( [] );
+					}
+
+					// Stesse policy del widget: tipi consentiti & ID esclusi
+					$allowed_types = apply_filters( 'czcr_allowed_post_types', [ 'post' ] );
+					$excluded_ids  = apply_filters( 'czcr_excluded_post_ids', [] );
+
+					$q = new WP_Query( [
+						'post_type'      => (array) $allowed_types,
+						'post_status'    => 'publish',
+						'post__in'       => $ids,
+						'posts_per_page' => -1,
+						'orderby'        => 'post__in',
+						'no_found_rows'  => true,
+						'fields'         => 'ids',
+					] );
+
+					$out = [];
+					foreach ( (array) $q->posts as $pid ) {
+						$pid = (int) $pid;
+						if ( in_array( $pid, $excluded_ids, true ) ) {
+							continue;
+						}
+						$out[ $pid ] = [
+							'id'        => $pid,
+							'title'     => get_the_title( $pid ),
+							'permalink' => get_permalink( $pid ),
+						];
+					}
+					return rest_ensure_response( $out );
+				},
+			]
+		);
+
 	}
 
 	/** ---------------- Helpers ---------------- */
@@ -490,6 +565,61 @@ final class CZ_Continue_Reading {
 		}
 		return max( 0.0, min( 100.0, ( $acc / $total ) * 100.0 ) );
 	}
+
+	/**
+	 * Normalizza un record di progresso e ricalcola percent_overall con fill-forward.
+	 * Ritorna l'array normalizzato e un flag `changed` se differisce dall'input.
+	 */
+	private function normalize_progress_record( array $rec ) : array {
+		$changed = false;
+
+		$post_id     = isset( $rec['post_id'] ) ? (int) $rec['post_id'] : 0;
+		$total       = isset( $rec['total_pages'] ) ? max( 1, (int) $rec['total_pages'] ) : 1;
+		$last_page   = isset( $rec['last_page'] ) ? max( 1, (int) $rec['last_page'] ) : 1;
+		$status      = isset( $rec['status'] ) ? (string) $rec['status'] : 'reading';
+		$pages_in    = ( isset( $rec['pages'] ) && is_array( $rec['pages'] ) ) ? $rec['pages'] : [];
+
+		// Mappa pagine 1..$total in 0..100 mantenendo le chiavi
+		$pages = [];
+		for ( $i = 1; $i <= $total; $i++ ) {
+			$val = isset( $pages_in[ $i ] ) ? (float) $pages_in[ $i ] : 0.0;
+			$pages[ $i ] = max( 0.0, min( 100.0, $val ) );
+		}
+
+		// Fill-forward: tutte le pagine < last_page valgono 100% se non già tali
+		$lp = min( $last_page, $total );
+		for ( $i = 1; $i < $lp; $i++ ) {
+			if ( $pages[ $i ] < 100.0 ) {
+				$pages[ $i ] = 100.0;
+			}
+		}
+
+		// Ricalcola percentuale complessiva
+		$new_overall = $this->compute_overall_percent( $pages, $total );
+		if ( $status === 'locked_done' ) {
+			$new_overall = 100.0;
+		}
+
+		// Confronta con l'input
+		$old_overall = isset( $rec['percent_overall'] ) ? (float) $rec['percent_overall'] : 0.0;
+		if ( $old_overall !== $new_overall || $pages_in !== $pages || $lp !== $last_page || $total !== (int) $rec['total_pages'] ) {
+			$changed = true;
+		}
+
+		return [
+			'rec'     => [
+				'post_id'         => $post_id,
+				'pages'           => $pages,
+				'last_page'       => $lp,
+				'total_pages'     => $total,
+				'percent_overall' => $new_overall,
+				'status'          => $status,
+				'updated_at'      => isset( $rec['updated_at'] ) ? $rec['updated_at'] : current_time( 'mysql', true ),
+			],
+			'changed' => $changed,
+		];
+	}
+
 }
 
 CZ_Continue_Reading::instance();

@@ -226,6 +226,49 @@
 		window.addEventListener('beforeunload', () => { try{ saveIfNeeded(); }catch{} }, { capture:true });
 	}
 
+	function updateReadingsEmptyState(wrap) {
+	  // Se non mi passa il wrapper, prendo il primo disponibile
+	  if (!wrap || !wrap.matches || !wrap.matches('[data-czcr-readings]')) {
+	    wrap = document.querySelector('[data-czcr-readings]');
+	  }
+	  if (!wrap) return;
+
+	  if (isLogged) {
+	    // LOGGED-IN: se la lista è vuota → mostra "Nessun articolo in lettura."
+	    const listEl  = wrap.querySelector('ul.czcr-list');
+	    const isEmpty = !listEl || listEl.children.length === 0;
+
+	    if (isEmpty) {
+	      if (listEl) listEl.remove();
+	      if (!wrap.querySelector('.czcr-empty')) {
+	        wrap.insertAdjacentHTML('beforeend', `<p class="czcr-empty">${cfg.i18n.no_items}</p>`);
+	      }
+	    }
+	  } else {
+	    // GUEST: se la lista è vuota → togli body class e assicurati del messaggio login/registrati
+	    const listEl  = wrap.querySelector('[data-czcr-guest-list]');
+	    const isEmpty = !listEl || listEl.children.length === 0;
+
+	    if (isEmpty) {
+	      tagBodyHasGuestReadings(false);
+	      if (listEl) listEl.innerHTML = '';
+
+	      let msgEl = wrap.querySelector('[data-czcr-guest-msg]');
+	      if (!msgEl) {
+	        const loginUrl = (cfg.urls && cfg.urls.login) || '#';
+	        const regUrl   = (cfg.urls && cfg.urls.register) || '#';
+	        msgEl = document.createElement('p');
+	        msgEl.className = 'czcr-guest-msg';
+	        msgEl.setAttribute('data-czcr-guest-msg', '');
+	        msgEl.innerHTML = `${cfg.i18n.login_to_keep_history
+	          .replace('Accedi', `<a href="${loginUrl}">Accedi</a>`)
+	          .replace('registrati', `<a href="${regUrl}">registrati</a>`)}`
+	        wrap.appendChild(msgEl);
+	      }
+	    }
+	  }
+	}
+
 	/* ---------- Mark toggles ---------- */
 	function bindMarkToggle(postCtx) {
 		document.querySelectorAll('[data-czcr-mark]').forEach(wrap => {
@@ -264,54 +307,147 @@
 		});
 
 		document.querySelectorAll('.czcr-readings .czcr-list-mark').forEach(btn => {
-			btn.addEventListener('click', async (e) => {
-				const li = e.currentTarget.closest('.czcr-item'); if (!li) return;
-				const postId = Number(li.getAttribute('data-post-id'));
-				if (isLogged) { try { await apiFetch('/mark', { method:'POST', body:{ post_id: postId, locked: true } }); } catch {} }
-				else {
-					const store = readLocal();
-					const rec = store[postId] || { post_id: postId, pages:{}, last_page:1, total_pages:1, percent_overall:0, status:'reading', updated_at:new Date().toISOString() };
-					rec.status = 'locked_done'; rec.percent_overall = 100; rec.updated_at = new Date().toISOString();
-					store[postId] = rec; writeLocal(store);
-				}
-				li.parentElement.removeChild(li);
-			});
+		  btn.addEventListener('click', async (e) => {
+		    const li   = e.currentTarget.closest('.czcr-item');
+		    if (!li) return;
+
+		    const wrap = li.closest('[data-czcr-readings]'); // 👈 PRIMA di rimuovere il li
+		    const postId = Number(li.getAttribute('data-post-id'));
+
+		    if (isLogged) {
+		      try { await apiFetch('/mark', { method:'POST', body:{ post_id: postId, locked: true } }); } catch {}
+		    } else {
+		      const store = readLocal();
+		      const rec = store[postId] || { post_id: postId, pages:{}, last_page:1, total_pages:1, percent_overall:0, status:'reading', updated_at:new Date().toISOString() };
+		      rec.status = 'locked_done'; rec.percent_overall = 100; rec.updated_at = new Date().toISOString();
+		      store[postId] = rec; writeLocal(store);
+		    }
+
+		    li.remove();
+		    updateReadingsEmptyState(wrap);
+		  });
 		});
 	}
 
 	/* ---------- Guest widget ---------- */
 	function hydrateGuestWidget() {
-		if (isLogged) return;
-		const wrap = document.querySelector('[data-czcr-readings]'); if (!wrap) return;
-		const store = readLocal();
-		const ids = Object.keys(store||{}).filter(pid => {
-			const rec = store[pid];
-			return rec && rec.status !== 'locked_done' && (rec.percent_overall||0)>0 && (rec.percent_overall||0)<100;
-		});
-		if (ids.length > 0) {
-			const loginUrl = (cfg.urls && cfg.urls.login) || '/login';
-			const regUrl = (cfg.urls && cfg.urls.register) || '/register';
-			wrap.innerHTML = `<p class="czcr-guest-msg">${cfg.i18n.login_to_keep_history.replace('Accedi', `<a href="${loginUrl}">Accedi</a>`).replace('registrati', `<a href="${regUrl}">registrati</a>`)}</p>`;
-		} else {
-			wrap.innerHTML = `<p class="czcr-empty">${cfg.i18n.no_items}</p>`;
+		const wrap = document.querySelector('[data-czcr-readings]');
+		if (!wrap) return;
+
+		// Solo per ospiti costruiamo la lista dal localStorage
+		if (!isLogged) {
+			const listEl = wrap.querySelector('[data-czcr-guest-list]');
+			const msgEl  = wrap.querySelector('[data-czcr-guest-msg]');
+
+			const store = readLocal();
+			const entries = [];
+			for (const pid of Object.keys(store || {})) {
+				const rec = store[pid];
+				if (!rec || rec.status === 'locked_done') continue;
+				const overall = Number(rec.percent_overall || 0);
+				if (overall <= 0 || overall >= 100) continue;
+				entries.push({ pid: Number(pid), rec });
+			}
+
+			if (!listEl) return;
+
+			if (entries.length === 0) {
+				listEl.innerHTML = ''; // niente lista
+				if (msgEl) msgEl.innerHTML = cfg.i18n.no_items; // se vuoi, mantieni invece il messaggio login/registrati
+				tagBodyHasGuestReadings(false);
+				return;
+			}
+
+			// Chiediamo al server titolo/permalink per questi ID (pubblico)
+			const idsParam = entries.map(e => e.pid).join(',');
+			apiFetch(`/lookup?ids=${encodeURIComponent(idsParam)}`, { method:'GET' })
+				.then(map => {
+					// map è un oggetto { [pid]: { id, title, permalink } }
+					const frags = [];
+					for (const { pid, rec } of entries) {
+						const meta = map && map[pid];
+						if (!meta || !meta.permalink) continue;
+
+						const last_page   = Number(rec.last_page || 1);
+						const total_pages = Number(rec.total_pages || 1);
+						const page_pct    = Number((rec.pages && rec.pages[last_page]) || 0);
+
+						// Costruisci URL con pagina corretta + czcr_pos
+						const base = meta.permalink.replace(/\/?$/, '/');
+						let page_url = (last_page > 1) ? (base + String(last_page) + '/') : base;
+						const posParam = Math.max(0, Math.min(100, Math.round(page_pct)));
+						page_url += (page_url.includes('?') ? '&' : '?') + 'czcr_pos=' + posParam;
+
+						const overall_pct = Math.max(0, Math.min(100, Math.round(Number(rec.percent_overall || 0))));
+
+						frags.push(
+							`<li class="czcr-item" data-post-id="${pid}">
+								<div class="czcr-top"><a class="czcr-link" href="${page_url}">${escapeHtml(meta.title || '—')}</a></div>
+								<div class="czcr-bottom">
+									<span class="czcr-percent">${overall_pct}%</span>
+									<button type="button" class="czcr-list-mark">Segna come letto</button>
+								</div>
+							</li>`
+						);
+					}
+					listEl.innerHTML = frags.join('');
+
+					// Attacca i click handler ai bottoni della lista guest
+					listEl.querySelectorAll('.czcr-list-mark').forEach(btn => {
+					  btn.addEventListener('click', (e) => {
+					    const li   = e.currentTarget.closest('.czcr-item');
+					    if (!li) return;
+
+					    const wrap = li.closest('[data-czcr-readings]'); // 👈 PRIMA
+					    const pid = Number(li.getAttribute('data-post-id'));
+
+					    const store = readLocal();
+					    const rec = store[pid] || { post_id: pid, pages:{}, last_page:1, total_pages:1, percent_overall:0, status:'reading', updated_at:new Date().toISOString() };
+					    rec.status = 'locked_done'; rec.percent_overall = 100; rec.updated_at = new Date().toISOString();
+					    store[pid] = rec; writeLocal(store);
+
+					    li.remove();
+					    updateReadingsEmptyState(wrap);   // 👈 DOPO
+					  });
+					});
+
+					tagBodyHasGuestReadings(true);
+				})
+				.catch(() => {
+					// in caso di errore, non tocchiamo la UI
+				});
+
+			// Messaggio login/registrati: usa SOLO gli URL passati da PHP (niente fallback hardcoded)
+			if (msgEl) {
+				const loginUrl = cfg.urls && cfg.urls.login ? cfg.urls.login : null;
+				const regUrl   = cfg.urls && cfg.urls.register ? cfg.urls.register : null;
+				if (loginUrl && regUrl) {
+					msgEl.innerHTML = `${cfg.i18n.login_to_keep_history
+						.replace('Accedi', `<a href="${loginUrl}">Accedi</a>`)
+						.replace('registrati', `<a href="${regUrl}">registrati</a>`)}`
+				}
+			}
+
+			return; // fine ramo ospiti
 		}
 
-		function tagBodyHasGuestReadings() {
-		  if (isLogged) return;
-		  try {
-		    const store = readLocal();
-		    const has = Object.keys(store || {}).some(pid => {
-		      const rec = store[pid];
-		      const pct = rec && rec.percent_overall || 0;
-		      return rec && rec.status !== 'locked_done' && pct > 0 && pct < 100;
-		    });
-		    document.documentElement.classList.toggle('czcr-has-guest-readings', has);
-		  } catch (e) {}
-		}
-
-		// Call it after DOMContentLoaded work:
-		tagBodyHasGuestReadings();
+		// Utente loggato: non facciamo nulla qui (render server-side)
 	}
+
+	function escapeHtml(str) {
+		return String(str)
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
+	}
+
+	function tagBodyHasGuestReadings(has) {
+		if (isLogged) return;
+		document.documentElement.classList.toggle('czcr-has-guest-readings', !!has);
+	}
+
 
 	/* ---------- Sync after login ---------- */
 	async function trySyncAfterLogin() {
@@ -336,30 +472,22 @@
 
 	/* ---------- Boot ---------- */
 	document.addEventListener('DOMContentLoaded', async () => {
-		// Non tracciare home, archivio, login, registrazione, ecc.
-		if (!document.body.classList.contains('single-post') &&
-		  !document.body.classList.contains('page')) {
-		return; // skip tracking
-		}
+	  const postCtx = (window.CZCR && window.CZCR.post) || null;
 
-		// E opzionalmente: non tracciare la pagina di login o registrazione
-		if (document.body.classList.contains('page-id-XX')) { // sostituisci XX con ID pagina login
-		return;
-		}
+	  await trySyncAfterLogin();
 
-		const postCtx = cfg.post || null;
-		await trySyncAfterLogin();
+	  // Tracking solo sui singoli articoli (quando PHP ha passato un contesto valido)
+	  if (postCtx && postCtx.id) {
+	    const params = new URLSearchParams(location.search);
+	    const pos = params.has('czcr_pos') ? parseFloat(params.get('czcr_pos')) : null;
+	    if (!isNaN(pos) && pos !== null) {
+	      requestAnimationFrame(() => scrollToPercent(Math.max(0, Math.min(100, pos))));
+	    }
+	    startTracking(postCtx);
+	  }
 
-		// Deep-link scroll solo con ?czcr_pos=
-		if (postCtx && postCtx.id) {
-			const params = new URLSearchParams(location.search);
-			const pos = params.has('czcr_pos') ? parseFloat(params.get('czcr_pos')) : null;
-			if (!isNaN(pos) && pos !== null) { requestAnimationFrame(()=>scrollToPercent(clamp(pos,0,100))); }
-			startTracking(postCtx);
-		}
-
-		bindMarkToggle(postCtx);
-		hydrateGuestWidget();
-		initFloatingToolbar();
+	  bindMarkToggle(postCtx);
+	  hydrateGuestWidget();   // i guest vedono la lista dal localStorage (se c'è), anche in home
+	  initFloatingToolbar();  // comparirà solo se c’è l’HTML della toolbar (che stampi solo nei post)
 	});
 })();

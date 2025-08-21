@@ -5,6 +5,15 @@
 	display: block; 
 }
 
+.czcr-guest-msg {
+	margin-top: 1em;
+}
+
+.czczr-guest-msg-info {
+	font-size: .8em;
+	margin-top: 2em;
+}
+
 .czcr-mark-wrap { 
 	margin: 1rem 0; 
 }
@@ -86,9 +95,4 @@
 
 .czcr-readings .czcr-list-mark:hover {
 	background: rgba(60,60,60,1);
-}
-
-.czcr-empty,.czcr-guest-msg { 
-	opacity: .8;
-	font-style: italic;
 }
