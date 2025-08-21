@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
+- Update the Toolbar appearance.
 - Update the message informing about reading list storage capabilities for not logged-in users.
 ### Fix
 - Fix item list closing mark behavior when all items were removed

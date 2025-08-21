@@ -68,7 +68,7 @@
 		function onScroll() {
 			const contentHeight = docHeights();
 			const centerRatio = (window.scrollY + window.innerHeight/2) / Math.max(1, contentHeight);
-			if (centerRatio > 0.35) toolbar.classList.add('is-visible');
+			if (centerRatio > 0.1) toolbar.classList.add('is-visible');
 			else toolbar.classList.remove('is-visible');
 		}
 		window.addEventListener('scroll', onScroll, { passive:true });
