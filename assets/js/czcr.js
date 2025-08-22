@@ -60,31 +60,55 @@
 
 	/* ---------- Floating toolbar render (when shortcode is present) ---------- */
 	function initFloatingToolbar() {
-		const toolbar = document.querySelector('.czcr-toolbar');
-		if (!toolbar) return;
-		const homeBtn = toolbar.querySelector('[data-czcr-home]');
-		const topBtn  = toolbar.querySelector('[data-czcr-top]');
+	  const toolbar = document.querySelector('.czcr-toolbar');
+	  if (!toolbar) return;
 
-		function onScroll() {
-			const contentHeight = docHeights();
-			const centerRatio = (window.scrollY + window.innerHeight/2) / Math.max(1, contentHeight);
-			if (centerRatio > 0.1) toolbar.classList.add('is-visible');
-			else toolbar.classList.remove('is-visible');
-		}
-		window.addEventListener('scroll', onScroll, { passive:true });
-		window.addEventListener('resize', onScroll, { passive:true });
-		onScroll();
+	  const homeBtn  = toolbar.querySelector('[data-czcr-home]');
+	  const topBtn   = toolbar.querySelector('[data-czcr-top]');
+	  const headerEl = document.querySelector('header.site-header');
 
-		homeBtn && homeBtn.addEventListener('click', (e) => {
-			e.preventDefault();
-			const url = (cfg.urls && cfg.urls.home) || '/';
-			window.location.href = url;
-		});
-		topBtn && topBtn.addEventListener('click', (e) => {
-			e.preventDefault();
-			window.scrollTo({ top: 0, behavior: 'smooth' });
-		});
+	  // Preferibile: compari quando l'header NON è visibile
+	  if ('IntersectionObserver' in window && headerEl) {
+	    const io = new IntersectionObserver((entries) => {
+	      const entry = entries[0];
+	      // visibile se interseca > 0
+	      const headerVisible = !!(entry && entry.isIntersecting && entry.intersectionRatio > 0);
+	      toolbar.classList.toggle('is-visible', !headerVisible);
+	    }, {
+	      root: null,            // viewport
+	      threshold: [0, 0.01, 1] // eventi sia quando entra che quando esce
+	    });
+	    io.observe(headerEl);
+	  } else {
+	    // Fallback: controlla la visibilità approssimata dell'header via scroll/resize
+	    function onScroll() {
+	      let headerVisible = false;
+	      if (headerEl) {
+	        const r = headerEl.getBoundingClientRect();
+	        headerVisible = (r.bottom > 0 && r.top < window.innerHeight);
+	      } else {
+	        // se non troviamo l'header, mostra la toolbar solo dopo un minimo scroll
+	        headerVisible = (window.scrollY <= 10);
+	      }
+	      toolbar.classList.toggle('is-visible', !headerVisible);
+	    }
+	    window.addEventListener('scroll', onScroll, { passive: true });
+	    window.addEventListener('resize', onScroll, { passive: true });
+	    onScroll();
+	  }
+
+	  // Azioni bottoni
+	  homeBtn && homeBtn.addEventListener('click', (e) => {
+	    e.preventDefault();
+	    const url = (cfg.urls && cfg.urls.home) || '/';
+	    window.location.href = url;
+	  });
+	  topBtn && topBtn.addEventListener('click', (e) => {
+	    e.preventDefault();
+	    window.scrollTo({ top: 0, behavior: 'smooth' });
+	  });
 	}
+
 
 	/* ---------- Tracking ---------- */
 	function computeOverallPercent(pages, totalPages) {
@@ -362,56 +386,85 @@
 			const idsParam = entries.map(e => e.pid).join(',');
 			apiFetch(`/lookup?ids=${encodeURIComponent(idsParam)}`, { method:'GET' })
 				.then(map => {
-					// map è un oggetto { [pid]: { id, title, permalink } }
-					const frags = [];
-					for (const { pid, rec } of entries) {
-						const meta = map && map[pid];
-						if (!meta || !meta.permalink) continue;
+					// Autoguarigione LS: aggiorna total_pages, normalizza pages e ricalcola overall
+				    const store = readLocal();
 
-						const last_page   = Number(rec.last_page || 1);
-						const total_pages = Number(rec.total_pages || 1);
-						const page_pct    = Number((rec.pages && rec.pages[last_page]) || 0);
+				    const frags = [];
+				    for (const { pid, rec } of entries) {
+				      const meta = map && map[pid];
+				      if (!meta || !meta.permalink) continue;
 
-						// Costruisci URL con pagina corretta + czcr_pos
-						const base = meta.permalink.replace(/\/?$/, '/');
-						let page_url = (last_page > 1) ? (base + String(last_page) + '/') : base;
-						const posParam = Math.max(0, Math.min(100, Math.round(page_pct)));
-						page_url += (page_url.includes('?') ? '&' : '?') + 'czcr_pos=' + posParam;
+				      // 1) prendi total_pages dal server (fallback a rec/1)
+				      const total_pages = Number(meta.total_pages || rec.total_pages || 1);
 
-						const overall_pct = Math.max(0, Math.min(100, Math.round(Number(rec.percent_overall || 0))));
+				      // 2) normalizza mappa pagine 1..total_pages in 0..100
+				      const pagesNorm = {};
+				      for (let i = 1; i <= total_pages; i++) {
+				        const v = rec.pages && typeof rec.pages[i] === 'number' ? rec.pages[i] : 0;
+				        pagesNorm[i] = Math.max(0, Math.min(100, Number(v)));
+				      }
 
-						frags.push(
-							`<li class="czcr-item" data-post-id="${pid}">
-								<div class="czcr-top"><a class="czcr-link" href="${page_url}">${escapeHtml(meta.title || '—')}</a></div>
-								<div class="czcr-bottom">
-									<span class="czcr-percent">${overall_pct}%</span>
-									<button type="button" class="czcr-list-mark">Segna come letto</button>
-								</div>
-							</li>`
-						);
-					}
-					listEl.innerHTML = frags.join('');
+				      // 3) fill-forward: tutte le pagine < last_page valgono 100%
+				      const lp = Math.max(1, Number(rec.last_page || 1));
+				      for (let i = 1; i < Math.min(lp, total_pages); i++) {
+				        if (pagesNorm[i] < 100) pagesNorm[i] = 100;
+				      }
 
-					// Attacca i click handler ai bottoni della lista guest
-					listEl.querySelectorAll('.czcr-list-mark').forEach(btn => {
-					  btn.addEventListener('click', (e) => {
-					    const li   = e.currentTarget.closest('.czcr-item');
-					    if (!li) return;
+				      // 4) ricalcola overall coerente con il numero totale di pagine
+				      const overallHealed = computeOverallPercent(pagesNorm, total_pages);
 
-					    const wrap = li.closest('[data-czcr-readings]'); // 👈 PRIMA
-					    const pid = Number(li.getAttribute('data-post-id'));
+				      // 5) salva la guarigione nel LS (senza toccare status)
+				      rec.pages = pagesNorm;
+				      rec.total_pages = total_pages;
+				      rec.percent_overall = overallHealed;
+				      store[pid] = rec;
 
-					    const store = readLocal();
-					    const rec = store[pid] || { post_id: pid, pages:{}, last_page:1, total_pages:1, percent_overall:0, status:'reading', updated_at:new Date().toISOString() };
-					    rec.status = 'locked_done'; rec.percent_overall = 100; rec.updated_at = new Date().toISOString();
-					    store[pid] = rec; writeLocal(store);
+				      // 6) costruisci l'URL con pagina corrente + czcr_pos
+				      const last_page   = lp;
+				      const page_pct    = pagesNorm[last_page] || 0;
+				      const base        = meta.permalink.replace(/\/?$/, '/');
+				      let page_url      = (last_page > 1) ? (base + String(last_page) + '/') : base;
+				      const posParam    = Math.max(0, Math.min(100, Math.round(page_pct)));
+				      page_url         += (page_url.includes('?') ? '&' : '?') + 'czcr_pos=' + posParam;
 
-					    li.remove();
-					    updateReadingsEmptyState(wrap);   // 👈 DOPO
-					  });
-					});
+				      const overall_pct = Math.max(0, Math.min(100, Math.round(overallHealed)));
 
-					tagBodyHasGuestReadings(true);
+				      frags.push(
+				        `<li class="czcr-item" data-post-id="${pid}">
+				           <div class="czcr-top"><a class="czcr-link" href="${page_url}">${escapeHtml(meta.title || '—')}</a></div>
+				           <div class="czcr-bottom">
+				             <span class="czcr-percent">${overall_pct}%</span>
+				             <button type="button" class="czcr-list-mark">Segna come letto</button>
+				           </div>
+				         </li>`
+				      );
+				    }
+
+				    // Scrivi una volta il LS aggiornato
+				    writeLocal(store);
+
+				    listEl.innerHTML = frags.join('');
+
+				    // (resto invariato) – attach click handler + updateReadingsEmptyState
+				    listEl.querySelectorAll('.czcr-list-mark').forEach(btn => {
+				      btn.addEventListener('click', (e) => {
+				        const li   = e.currentTarget.closest('.czcr-item');
+				        if (!li) return;
+
+				        const wrap = li.closest('[data-czcr-readings]');
+				        const pid = Number(li.getAttribute('data-post-id'));
+
+				        const store = readLocal();
+				        const rec = store[pid] || { post_id: pid, pages:{}, last_page:1, total_pages:1, percent_overall:0, status:'reading', updated_at:new Date().toISOString() };
+				        rec.status = 'locked_done'; rec.percent_overall = 100; rec.updated_at = new Date().toISOString();
+				        store[pid] = rec; writeLocal(store);
+
+				        li.remove();
+				        updateReadingsEmptyState(wrap);
+				      });
+				    });
+
+				    tagBodyHasGuestReadings(true);
 				})
 				.catch(() => {
 					// in caso di errore, non tocchiamo la UI

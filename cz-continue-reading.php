@@ -549,10 +549,17 @@ final class CZ_Continue_Reading {
 						if ( in_array( $pid, $excluded_ids, true ) ) {
 							continue;
 						}
+
+						// Calcola il numero di pagine totali del post (conteggio dei <!--nextpage-->)
+						$content     = (string) get_post_field( 'post_content', $pid );
+						$total_pages = 1 + substr_count( $content, '<!--nextpage-->' );
+						$total_pages = max( 1, (int) $total_pages );
+
 						$out[ $pid ] = [
-							'id'        => $pid,
-							'title'     => get_the_title( $pid ),
-							'permalink' => get_permalink( $pid ),
+							'id'           => $pid,
+							'title'        => get_the_title( $pid ),
+							'permalink'    => get_permalink( $pid ),
+							'total_pages'  => $total_pages, // ← NUOVO
 						];
 					}
 					return rest_ensure_response( $out );

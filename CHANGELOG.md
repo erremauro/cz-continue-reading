@@ -5,14 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
--  Remove label and update color scheme for toolbar's icon
+## [1.2.1] 2025-08-22
+### Changed
+- The toolbar now appear as soon as the menu header disappear from view
+- Remove label and update color scheme for toolbar's icon
+### Fixed
+- Fix wrong reading overall percent calculation for not logged-in users
 
 ## [1.2.0] 2025-08-21
 ### Changed
 - Update the Toolbar appearance.
 - Update the message informing about reading list storage capabilities for not logged-in users.
-### Fix
+### Fixed
 - Fix item list closing mark behavior when all items were removed
 - Fix no-item visibility for not logged-in users.
 - Fix login message typo in `czcr.js`
@@ -22,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial Commit
 
 
-[Unreleased]: https://github.com/erremauro/cigno-zen/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/erremauro/cigno-zen/releases/tag/v1.2.0
-[1.1.0]: https://github.com/erremauro/cigno-zen/releases/tag/v1.1.0
+[Unreleased]: https://github.com/erremauro/cz-continue-reading/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.2.1
+[1.2.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.2.0
+[1.1.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.1.0
