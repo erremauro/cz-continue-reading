@@ -228,7 +228,6 @@ final class CZ_Continue_Reading {
 							<path d="M4 10.5L12 4l8 6.5V20a2 2 0 0 1-2 2h-4v-6H10v6H6a2 2 0 0 1-2-2v-9.5Z" fill="currentColor"/>
 						</svg>
 					</span>
-					<span class="czcr-label"><?php echo esc_html( __( 'Home', 'cz-continue-reading' ) ); ?></span>
 				</button>
 			<?php endif; ?>
 
@@ -240,7 +239,6 @@ final class CZ_Continue_Reading {
 							<path d="M12 5l7 7-1.41 1.41L13 8.83V20h-2V8.83l-4.59 4.58L5 12l7-7Z" fill="currentColor"/>
 						</svg>
 					</span>
-					<span class="czcr-label"><?php echo esc_html( __( 'Su', 'cz-continue-reading' ) ); ?></span>
 				</button>
 			<?php endif; ?>
 		</div>
