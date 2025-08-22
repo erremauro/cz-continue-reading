@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CZ Continue Reading
  * Description: Tracks article reading progress (guests via localStorage, users via usermeta) and provides shortcodes: [readings] and [mark_as_read].
- * Version:     1.1.0
+ * Version:     1.2.0
  * Author:      CZ
  * Text Domain: cz-continue-reading
  */
