@@ -96,3 +96,64 @@
 .czcr-readings .czcr-list-mark:hover {
 	background: rgba(60,60,60,1);
 }
+
+
+.czcr-resume-modal{
+	position:fixed;
+	inset:0;
+	z-index:99999;
+	display:flex;
+	align-items:center;
+	justify-content:center
+}
+
+.czcr-resume-backdrop{
+	position:absolute;
+	inset:0;
+	background:rgba(0,0,0,.68)
+}
+.czcr-resume-dialog {
+	position:relative;
+	background: rgba(20,20,20,.85);
+	backdrop-filter: blur(6px);
+	border: 1px solid rgba(40,40,40,1);
+	padding:16px 18px;
+	border-radius:12px;
+	min-width:260px;
+	max-width:90vw;
+	box-shadow:0 10px 30px rgba(0,0,0,.2);
+	font:inherit;
+}
+
+.czcr-resume-dialog h3 {
+	line-height: 2;
+	margin-bottom: .25em;
+}
+
+.czcr-resume-dialog p {
+	line-height: 1.68;
+}
+
+.czcr-resume-actions {
+	display:flex;
+	gap:8px;
+	justify-content: flex-end;
+	margin-top: 1em;
+}
+.czcr-btn {
+	border: 1px solid rgba(60,60,60,1);
+	background: rgba(30,30,30,1);
+	color: #98989B;
+	border-radius:999px;
+	padding:8px 12px;
+	cursor:pointer
+}
+.czcr-btn-primary {
+	background: rgba(30,30,30,1);
+	color: #439cd6;
+	border-color: rgba(60,60,60,1)
+}
+
+.czcr-btn:hover {
+	background: rgba(40,40,40,1); 
+}

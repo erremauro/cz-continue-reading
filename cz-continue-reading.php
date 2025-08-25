@@ -98,7 +98,7 @@ final class CZ_Continue_Reading {
 			'selectors'       => [
 				'footnotes'       => 'div.footnotes',
 				'postPagination'  => 'div.post-pagination',
-				'postFooter'      => 'div.post-footer',
+				'postFooter'      => 'footer.post-footer, div.post-footer',
 			],
 			'storageKey'      => self::LS_STORAGE_KEY,
 			'saveStep'        => 1,
@@ -319,7 +319,6 @@ final class CZ_Continue_Reading {
 					// Link alla pagina corretta + deep-link della posizione (shareable)
 					$base     = trailingslashit( get_permalink( $pid ) );
 					$page_url = ( $last_page > 1 ) ? trailingslashit( $base . $last_page ) : $base;
-					$page_url = add_query_arg( 'czcr_pos', max( 0, min( 100, round( $page_pct ) ) ), $page_url );
 
 					$items[ $pid ] = [
 						'post_id'     => $pid,
