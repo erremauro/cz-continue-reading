@@ -1,159 +1,164 @@
 .czcr-guest-continue { 
-	display: none; 
+  display: none;
 }
 .czcr-has-guest-readings .czcr-guest-continue { 
-	display: block; 
+  display: block;
 }
 
 .czcr-guest-msg {
-	margin-top: 1em;
+  margin-top: 1em;
 }
 
 .czczr-guest-msg-info {
-	font-size: .8em;
-	margin-top: 2em;
+  font-size: .8em;
+  margin-top: 2em;
 }
 
 .czcr-mark-wrap { 
-	margin: 1rem 0; 
+  margin: 1rem 0;
 }
 
 .czcr-mark-btn { 
-	padding: .5rem .75rem; 
-	border: 1px solid #ccc; 
-	border-radius: .5rem; 
-	background: #fff; 
-	cursor: pointer; 
+  padding: .5rem .75rem;
+  border: 1px solid #ccc;
+  border-radius: .5rem;
+  background: #fff;
+  cursor: pointer;
 }
 
 .czcr-mark-btn[aria-pressed="true"] { 
-	background: #f0fff0; 
-	border-color: #9ccc9c; 
+  background: #f0fff0;
+  border-color: #9ccc9c;
 }
 
 .czcr-readings .czcr-list { 
-	list-style: none; 
-	padding: 0; 
-	margin: .5rem 0 0; 
-	gap: 1rem; 
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))
+  list-style: none;
+  padding: 0;
+  margin: .5rem 0 0;
+  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr))
 }
 
 .czcr-readings .czcr-item { 
-	display: flex;
-  	flex-direction: column;        
-  	justify-content: space-between; 
-  	gap: 0.5em;                
-  	padding: 1em;
-	background: rgba(30,30,30,1);
-	border-radius: .5em;
-	border: 1px solid rgba(60,60,60,1);
-	transition: border .3s ease;
+  display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.5em;
+    padding: 1em;
+  background: rgba(30,30,30,1);
+  border-radius: .5em;
+  border: 1px solid rgba(60,60,60,1);
+  transition: border .3s ease;
 }
 
 .czcr-readings .czcr-item:hover {
-	cursor: default;
+  cursor: default;
 }
 
 .czcr-top {
-	margin-bottom: auto;
+  margin-bottom: auto;
 }
 
 .czcr-readings .czcr-link { 
-	display: inline-block;
-	margin-bottom: 0.25em;
+  display: inline-block;
+  margin-bottom: 0.25em;
 }
 
 .czcr-bottom {
-	display: flex;
-	align-items: flex-end;
-	justify-content: space-between;
-	margin-top: 0.25em;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 0.25em;
 }
 
 .czcr-readings .czcr-percent:before {
-	content: "Lettura ・ ";
+  content: "Lettura ・ ";
 }
 
 .czcr-readings .czcr-percent { 
-	font-variant-numeric: tabular-nums; 
+  font-variant-numeric: tabular-nums;
 }
 
 .czcr-readings .czcr-list-mark { 
-	margin-left: auto;
-	border: 1px solid rgba(60,60,60,1);
-	background: rgba(30,30,30,1);
-	color: #98989B;
-	border-radius: 999px;
-	padding: .4rem .8rem;
-	font-size: 14px;
-	cursor: pointer;
-	white-space: nowrap;
-	min-width: 5em;
+  margin-left: auto;
+  border: 1px solid rgba(60,60,60,1);
+  background: rgba(30,30,30,1);
+  color: #98989B;
+  border-radius: 999px;
+  padding: .4rem .8rem;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 5em;
 }
 
 .czcr-readings .czcr-list-mark:hover {
-	background: rgba(60,60,60,1);
+  background: rgba(60,60,60,1);
 }
 
+.czcr-empty {
+  font-style: italic;
+  font-size: 1.2em;
+  opacity: .8;
+}
 
 .czcr-resume-modal{
-	position:fixed;
-	inset:0;
-	z-index:99999;
-	display:flex;
-	align-items:center;
-	justify-content:center
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:flex;
+  align-items:center;
+  justify-content:center
 }
 
 .czcr-resume-backdrop{
-	position:absolute;
-	inset:0;
-	background:rgba(0,0,0,.68)
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.68)
 }
 .czcr-resume-dialog {
-	position:relative;
-	background: rgba(20,20,20,.85);
-	backdrop-filter: blur(6px);
-	border: 1px solid rgba(40,40,40,1);
-	padding:16px 18px;
-	border-radius:12px;
-	min-width:260px;
-	max-width:90vw;
-	box-shadow:0 10px 30px rgba(0,0,0,.2);
-	font:inherit;
+  position:relative;
+  background: rgba(20,20,20,.85);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(40,40,40,1);
+  padding:16px 18px;
+  border-radius:12px;
+  min-width:260px;
+  max-width:90vw;
+  box-shadow:0 10px 30px rgba(0,0,0,.2);
+  font:inherit;
 }
 
 .czcr-resume-dialog h3 {
-	line-height: 2;
-	margin-bottom: .25em;
+  line-height: 2;
+  margin-bottom: .25em;
 }
 
 .czcr-resume-dialog p {
-	line-height: 1.68;
+  line-height: 1.68;
 }
 
 .czcr-resume-actions {
-	display:flex;
-	gap:8px;
-	justify-content: flex-end;
-	margin-top: 1em;
+  display:flex;
+  gap:8px;
+  justify-content: flex-end;
+  margin-top: 1em;
 }
 .czcr-btn {
-	border: 1px solid rgba(60,60,60,1);
-	background: rgba(30,30,30,1);
-	color: #98989B;
-	border-radius:999px;
-	padding:8px 12px;
-	cursor:pointer
+  border: 1px solid rgba(60,60,60,1);
+  background: rgba(30,30,30,1);
+  color: #98989B;
+  border-radius:999px;
+  padding:8px 12px;
+  cursor:pointer
 }
 .czcr-btn-primary {
-	background: rgba(30,30,30,1);
-	color: #439cd6;
-	border-color: rgba(60,60,60,1)
+  background: rgba(30,30,30,1);
+  color: #439cd6;
+  border-color: rgba(60,60,60,1)
 }
 
 .czcr-btn:hover {
-	background: rgba(40,40,40,1); 
+  background: rgba(40,40,40,1);
 }
