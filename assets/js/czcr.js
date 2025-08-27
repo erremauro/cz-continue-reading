@@ -1,5 +1,6 @@
-/* CZ Continue Reading – Front-end (v1.3.0)
- * - Deep-link resume only via ?czcr_pos=NN
+/* CZ Continue Reading – Front-end (v1.3.1)
+ * - Deep-link resume only via ?czcr_pos=NN (compat)
+ * - Prompt “Continua a leggere?” senza leak nell’URL
  * - Throttled saves
  * - Fill-forward multi-page
  * - Dwell-per-decrease + top no-save zone (con isteresi sul fondo)
@@ -11,7 +12,7 @@
 
   const cfg = window.CZCR;
 
-  // === DEBUG TOOLS ===========================================================
+  // === DEBUG ================================================================
   const DEBUG = (() => {
     try {
       const qp = new URLSearchParams(location.search);
@@ -95,18 +96,18 @@
     try { ro.observe(document.documentElement); ro.observe(document.body); } catch {}
   }
 
-  // UI minimale per il prompt
+  /* ---------- Resume prompt (UI minimale) ---------- */
   function renderResumePrompt({ onResume, onStartOver }) {
     const wrap = document.createElement('div');
     wrap.className = 'czcr-resume-modal';
     wrap.innerHTML = `
       <div class="czcr-resume-backdrop" role="presentation"></div>
       <div class="czcr-resume-dialog" role="dialog" aria-labelledby="czcr-resume-title" aria-modal="true">
-        <h3 id="czcr-resume-title">Continua a leggere</h3>
-        <p>Vuoi continuare da dove avevi interrotto?</p>
+        <h3 id="czcr-resume-title">${cfg.i18n && cfg.i18n.continue_title ? cfg.i18n.continue_title : 'Continua a leggere'}</h3>
+        <p>${cfg.i18n && cfg.i18n.continue_msg ? cfg.i18n.continue_msg : 'Vuoi continuare da dove avevi interrotto?'}</p>
         <div class="czcr-resume-actions">
-          <button type="button" class="czcr-btn czcr-btn-primary" data-act="resume">Continua</button>
-          <button type="button" class="czcr-btn" data-act="start">Annulla</button>
+          <button type="button" class="czcr-btn czcr-btn-primary" data-act="resume">${cfg.i18n && cfg.i18n.continue_yes ? cfg.i18n.continue_yes : 'Continua'}</button>
+          <button type="button" class="czcr-btn" data-act="start">${cfg.i18n && cfg.i18n.continue_no ? cfg.i18n.continue_no : 'Annulla'}</button>
         </div>
       </div>`;
     document.body.appendChild(wrap);
@@ -116,7 +117,43 @@
     wrap.querySelector('[data-act="start"]').addEventListener('click', () => { try { onStartOver(); } finally { close(); } });
   }
 
+  // ==== Resume: gestione visita per-post ======================================
+  function kVisit(pid){ return `czcr_resume_visit_${pid}`; }
+  function kAsked(pid){ return `czcr_resume_asked_${pid}`; }
+
+  function setVisit(pid, on){ try { sessionStorage.setItem(kVisit(pid), on ? '1':''); } catch {} }
+  function clearVisit(pid){ try { sessionStorage.removeItem(kVisit(pid)); } catch {} }
+  function hasVisit(pid){ try { return sessionStorage.getItem(kVisit(pid)) === '1'; } catch { return false; } }
+
+  function markAsked(pid){ try { sessionStorage.setItem(kAsked(pid),'1'); } catch {} }
+  function wasAsked(pid){ try { return sessionStorage.getItem(kAsked(pid)) === '1'; } catch { return false; } }
+  function clearAsked(pid){ try { sessionStorage.removeItem(kAsked(pid)); } catch {} }
+
+  // Normalizza il "root" del post multipagina (es: /slug/, /slug/2/, /slug/3/ → /slug/)
+  function normalizePostRoot(u) {
+    try {
+      const url = new URL(u, location.origin);
+      url.pathname = url.pathname.replace(/\/\d+\/?$/, '/'); // rimuove /<n> finale (WP multipage)
+      return url.origin + url.pathname;
+    } catch { return u || ''; }
+  }
+
+  function isSamePostReferrer(postPermalink) {
+    const base = normalizePostRoot(postPermalink);
+    try {
+      const ref = document.referrer ? new URL(document.referrer) : null;
+      if (!ref) return false;
+      const refNorm = normalizePostRoot(ref.href);
+      return refNorm === base;
+    } catch { return false; }
+  }
+
   async function maybeOfferResume(postCtx) {
+    // Se è lo steso post → non  riproporre
+    if (isSamePostReferrer(postCtx.permalink)) return;
+    // Se abbiamo già chiesto in questa visita → non riproporre
+    if (wasAsked(postCtx.id)) return;
+
     // Recupera record: server per loggati, LS per ospiti
     let rec = null;
     if (isLogged) {
@@ -140,7 +177,6 @@
     if (!(overall > 0 && overall < 100)) return;
     if (pct < 5) return; // troppo vicino all’inizio → inutile proporre
 
-    // Se siamo già nella pagina giusta ma molto lontani dalla posizione, proponi
     const currentPage = Number(postCtx.currentPage || 1);
     const needPageJump = (lp !== currentPage);
 
@@ -150,10 +186,11 @@
     const currentPct = clamp((centerY / Math.max(1, contentH)) * 100, 0, 100);
     if (!needPageJump && Math.abs(currentPct - pct) < 5) return;
 
-    // Offri la ripresa
+    if (DEBUG) dlog('resume: offer', { lp, currentPage, needPageJump, targetPct: pct, currentPct });
+
     renderResumePrompt({
       onResume: () => {
-        try { sessionStorage.setItem(seenKey, '1'); } catch {}
+        try { markAsked(postCtx.id); } catch {}
         if (needPageJump) {
           // vai alla pagina corretta senza leak posizione
           const base = (postCtx.permalink || '').replace(/\/?$/, '/');
@@ -165,15 +202,13 @@
         }
       },
       onStartOver: () => {
-        try { sessionStorage.setItem(seenKey, '1'); } catch {}
+        try { markAsked(postCtx.id); } catch {}
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     });
   }
 
-
-
-  /* ---------- Deep-link only ---------- */
+  /* ---------- Deep-link only (compat) ---------- */
   function scrollToPercent(percent) {
     const contentHeight = docHeights();
     const targetCenter  = clamp((percent/100)*contentHeight, 0, contentHeight);
@@ -238,6 +273,17 @@
     if (DEBUG) dlog('startTracking', postCtx);
     if (!postCtx || !postCtx.id) return;
 
+    // Se ci sono link di paginazione, segna la visita continua sullo stesso post
+    (function bindPaginationVisitGuard() {
+      const root = document.querySelector(cfg.selectors.postPagination);
+      if (!root) return;
+      root.querySelectorAll('a[href]').forEach(a => {
+        a.addEventListener('click', () => {
+          setVisit(postCtx.id, true); // sto passando a un'altra pagina dello stesso post
+        }, { capture:true, passive:true });
+      });
+    })();
+
     // SALVATAGGI SOLO DOPO GESTO UTENTE
     let hasUserInteracted = false;
     const markInteracted = () => { hasUserInteracted = true; };
@@ -246,7 +292,7 @@
     window.addEventListener('touchstart', markInteracted, { passive:true, once:true });
     window.addEventListener('keydown',    markInteracted, {                once:true });
 
-    // Fondo con isteresi (unica dichiarazione!)
+    // Fondo con isteresi
     const BOTTOM_ENTER_MARGIN = 0;
     const BOTTOM_EXIT_MARGIN  = 120;
     let bottomLatched = false;
@@ -278,16 +324,15 @@
       const targets = [footEl, pagEl, postFooterEl].filter(Boolean);
       let triggerTop = Infinity;
 
+      // anti-100 “facile” su mono-pagina: richiedi centro > 80% prima di considerare target
       if (postCtx.totalPages === 1) {
         const NEED_CENTER_RATIO = 0.80;
         const centerRatio = (window.scrollY + window.innerHeight/2) / Math.max(1, docH);
         if (centerRatio < NEED_CENTER_RATIO) return false;
       }
 
-
       if (targets.length) {
-        // Considera come "target validi" solo quelli davvero vicini al fondo
-        const MIN_TARGET_DOC_RATIO = 0.60; // 60% del documento
+        const MIN_TARGET_DOC_RATIO = 0.60; // considera target solo se posizionati oltre il 60% del doc
         const minAllowed = docH * MIN_TARGET_DOC_RATIO;
 
         for (const el of targets) {
@@ -305,12 +350,12 @@
       const nearBottomEnter = (window.scrollY + window.innerHeight) >= (docH - 2);
       const nearBottomExit  = (window.scrollY + window.innerHeight) <  (docH - 40);
 
-      // isteresi target (usa le stesse costanti di startTracking — nessun shadowing)
+      // isteresi target
       const hasValidTarget = (triggerTop !== Infinity);
       const enterByTargets = hasValidTarget && (centerY >= (triggerTop + BOTTOM_ENTER_MARGIN));
       const exitByTargets  = hasValidTarget && (centerY <  (triggerTop - BOTTOM_EXIT_MARGIN));
 
-      // su pagine corte, ignora nearBottom puro
+      // su pagine corte, ignora nearBottom “puro”
       const enterByViewport = isSmallPage ? false : nearBottomEnter;
       const exitByViewport  = isSmallPage ? true  : nearBottomExit;
 
@@ -599,11 +644,10 @@
             storeNow[pid] = rec;
 
             const last_page = lp;
-            const page_pct  = pagesNorm[last_page] || 0;
+            const overall_pct = Math.max(0, Math.min(100, Math.round(overallHealed)));
             const base      = meta.permalink.replace(/\/?$/, '/');
             let page_url    = (last_page > 1) ? (base + String(last_page) + '/') : base;
 
-            const overall_pct = Math.max(0, Math.min(100, Math.round(overallHealed)));
             frags.push(
               `<li class="czcr-item" data-post-id="${pid}">
                  <div class="czcr-top"><a class="czcr-link" href="${page_url}">${escapeHtml(meta.title || '—')}</a></div>
@@ -710,26 +754,36 @@
 
   /* ---------- Boot ---------- */
   document.addEventListener('DOMContentLoaded', async () => {
-  const postCtx = (window.CZCR && window.CZCR.post) || null;
+    const postCtx = (window.CZCR && window.CZCR.post) || null;
 
-  await trySyncAfterLogin();
+    await trySyncAfterLogin();
 
-  if (postCtx && postCtx.id) {
-    // BACKWARD COMPAT: se l’URL ha ancora czcr_pos, lo rispettiamo (ma non lo generiamo più)
-    const params = new URLSearchParams(location.search);
-    const pos = params.has('czcr_pos') ? parseFloat(params.get('czcr_pos')) : null;
-    if (!isNaN(pos) && pos !== null) {
-      requestAnimationFrame(() => scrollToPercent(clamp(pos, 0, 100)));
-    } else {
-      // nuova UX: offri la ripresa senza “leak” nell’URL
-      maybeOfferResume(postCtx);
+    if (postCtx && postCtx.id) {
+      // Reset/attiva visita a seconda del referrer
+      const samePost = isSamePostReferrer(postCtx.permalink);
+      if (!samePost) {
+        // Nuova visita: pulisci stato precedente (così il prompt può ricomparire)
+        clearVisit(postCtx.id);
+        clearAsked(postCtx.id);
+      }
+      // Stai entrando nel post: attiva la visita (vale per i passaggi di pagina)
+      setVisit(postCtx.id, true);
+
+      // BACKWARD COMPAT: se l’URL ha ancora czcr_pos, lo rispettiamo (ma non lo generiamo più)
+      const params = new URLSearchParams(location.search);
+      const pos = params.has('czcr_pos') ? parseFloat(params.get('czcr_pos')) : null;
+      if (!isNaN(pos) && pos !== null) {
+        requestAnimationFrame(() => scrollToPercent(clamp(pos, 0, 100)));
+      } else {
+        // nuova UX: offri la ripresa senza “leak” nell’URL (solo 1 volta per visita)
+        maybeOfferResume(postCtx);
+      }
+
+      startTracking(postCtx);
     }
 
-    startTracking(postCtx);
-  }
-
-  bindMarkToggle(postCtx);
-  hydrateGuestWidget();
-  initFloatingToolbar();
-});
+    bindMarkToggle(postCtx);
+    hydrateGuestWidget();
+    initFloatingToolbar();
+  });
 })();
