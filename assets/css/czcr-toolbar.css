@@ -1,110 +1,125 @@
-/* --- Toolbar base --- */
-.czcr-toolbar {
-	position: fixed;
-	inset-inline: 0;           /* left:0; right:0 in RTL/LTR */
-	bottom: 0;
-	z-index: 9999;
-	display: flex;
-	align-items: center;
-	justify-content: space-between; /* Mobile: icone ai lati */
-	gap: .75rem;
+:root {
+  color-scheme: light dark;
 
-	/* Visual */
-	background: rgba(20,20,20,.85);
-	backdrop-filter: blur(6px);
-	border-top: 1px solid rgba(40,40,40,1);
-	box-shadow: 0 -20px 24px rgba(0,0,0,.12);
-
-	/* Spaziatura + safe area iOS */
-	padding: .75rem 1rem;
-	padding-bottom: calc(.75rem + env(safe-area-inset-bottom, 0px));
-
-	/* Show/Hide animation */
-	transition: opacity .2s ease, transform .2s ease;
-	transform: translateY(10px);
-	opacity: 0;
-
-	text-align: center;
+  /* Dark (default) */
+  --czcr-toolbar-bg: rgba(20,20,20,.85);
+  --czcr-toolbar-border: rgba(40,40,40,1);
+  --czcr-toolbar-shadow: 0 -20px 24px rgba(20,20,20,1);
+  --czcr-btn-bg: rgba(30,30,30,1);
+  --czcr-btn-bg-hover: rgba(60,60,60,1);
+  --czcr-btn-border: rgba(60,60,60,1);
+  --czcr-btn-text: #98989B;
+  --czcr-focus-outline: #888;
 }
 
-/* Prefer a robust safe-area min using max() when supported */
+/* Override per tema chiaro */
+html[data-theme="light"] {
+  --czcr-toolbar-bg: rgba(255,255,255,.9);
+  --czcr-toolbar-border: #ddd;
+  --czcr-toolbar-shadow: 0 -20px 24px rgba(250,250,250,1);
+  --czcr-btn-bg: #fff;
+  --czcr-btn-bg-hover: #f7f7f7;
+  --czcr-btn-border: #ccc;
+  --czcr-btn-text: #2c2c2c;
+  --czcr-focus-outline: #555;
+}
+
+
+/* --- Toolbar base --- */
+.czcr-toolbar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+
+  background: var(--czcr-toolbar-bg);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid var(--czcr-toolbar-border);
+  box-shadow: var(--czcr-toolbar-shadow);
+
+  padding: .75rem 1rem;
+  padding-bottom: calc(.75rem + env(safe-area-inset-bottom, 0px));
+
+  transition: opacity .2s ease, transform .2s ease;
+  transform: translateY(10px);
+  opacity: 0;
+  text-align: center;
+}
+
 @supports (padding-bottom: max(0px)) {
-	.czcr-toolbar {
-		padding-bottom: max(.75rem, env(safe-area-inset-bottom, 0px));
-	}
+  .czcr-toolbar {
+    padding-bottom: max(.75rem, env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .czcr-toolbar.is-visible {
-	opacity: 1;
-	pointer-events: auto;
-	transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .czcr-toolbar--left { right: auto; left: 1rem; }
 
 /* --- Buttons --- */
 .czcr-toolbar__btn {
-	appearance: none;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-	border: 1px solid rgba(60,60,60,1);
-	background: rgba(30,30,30,1);
-	color: #98989B;
-	border-radius: 999px;
+  border: 1px solid var(--czcr-btn-border);
+  background: var(--czcr-btn-bg);
+  color: var(--czcr-btn-text);
+  border-radius: 999px;
 
-	/* Touch target size like iOS (min ~44px) */
-	min-width: 44px;
-	min-height: 44px;
+  min-width: 44px;
+  min-height: 44px;
 
-	padding: .8rem;
-	font-size: 14px;
-	line-height: 1;
-	cursor: pointer;
-	white-space: nowrap;
+  padding: .8rem;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.czcr-toolbar__btn:hover { 
-	background: rgba(60,60,60,1); 
+.czcr-toolbar__btn:hover {
+  background: var(--czcr-btn-bg-hover);
 }
 
 /* Icon + label */
 .czcr-icon {
-	display: inline-flex;
-	width: 24px;
-	height: 24px;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
 }
 
-/* On small screens: show icon-only look (label hidden) */
 .czcr-label {
-	display: none;
-	margin-inline-start: .5rem;
+  display: none;
+  margin-inline-start: .5rem;
 }
 
 /* --- Mobile tweaks --- */
 @media only screen and (max-width: 576px) {
-	.czcr-toolbar { min-height: 4em; }
+  .czcr-toolbar { min-height: 4em; }
 }
 
-/* --- Large screens (tablet landscape and up): center buttons and show labels --- */
+/* --- Large screens --- */
 @media (min-width: 768px) {
-	.czcr-toolbar {
-		justify-content: center; /* Desktop/Tablet: pulsanti centrati */
-	}
-
-	.czcr-label {
-		display: inline; /* Mostra etichette su schermi grandi */
-	}
+  .czcr-toolbar { justify-content: center; }
+  .czcr-label { display: inline; }
 }
 
 /* Optional: reduce motion */
 @media (prefers-reduced-motion: reduce) {
-	.czcr-toolbar { transition: none; }
+  .czcr-toolbar { transition: none; }
 }
 
-/* Optional: focus styles for accessibility */
+/* Accessibility focus */
 .czcr-toolbar__btn:focus-visible {
-	outline: 2px solid #888;
-	outline-offset: 2px;
+  outline: 2px solid var(--czcr-focus-outline);
+  outline-offset: 2px;
 }
