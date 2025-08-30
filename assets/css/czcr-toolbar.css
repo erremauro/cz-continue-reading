@@ -8,20 +8,36 @@
   --czcr-btn-bg: rgba(30,30,30,1);
   --czcr-btn-bg-hover: rgba(60,60,60,1);
   --czcr-btn-border: rgba(60,60,60,1);
-  --czcr-btn-text: #98989B;
-  --czcr-focus-outline: #888;
+  --czcr-btn-text: rgba(152, 152, 152, 1);
+  --czcr-focus-outline: rgba(136, 136, 136, 1.00);
 }
 
 /* Override per tema chiaro */
 html[data-theme="light"] {
   --czcr-toolbar-bg: rgba(255,255,255,.9);
-  --czcr-toolbar-border: #ddd;
+  --czcr-toolbar-border: rgba(221, 221, 221, 1.00);
   --czcr-toolbar-shadow: 0 -20px 24px rgba(250,250,250,1);
-  --czcr-btn-bg: #fff;
-  --czcr-btn-bg-hover: #f7f7f7;
-  --czcr-btn-border: #ccc;
-  --czcr-btn-text: #2c2c2c;
-  --czcr-focus-outline: #555;
+  --czcr-btn-bg: rgba(255,255,255,1);
+  --czcr-btn-bg-hover: gba(247, 247, 247, 1);
+  --czcr-btn-border: rgba(204, 204, 204, 1);
+  --czcr-btn-text: rgba(44, 44, 44, 1);
+  --czcr-focus-outline: rgba(85, 85, 85, 1.00);
+}
+
+/* Override AUTOMATICO se NON c’è data-theme: usa la preferenza di sistema  */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+
+    --czcr-toolbar-bg: rgba(255,255,255,.9);
+    --czcr-toolbar-border: rgba(221, 221, 221, 1.00);
+    --czcr-toolbar-shadow: 0 -20px 24px rgba(250,250,250,1);
+    --czcr-btn-bg: rgba(255,255,255,1);
+    --czcr-btn-bg-hover: rgba(247, 247, 247, 1);
+    --czcr-btn-border: rgba(204, 204, 204, 1);
+    --czcr-btn-text: rgba(44, 44, 44, 1);
+    --czcr-focus-outline: rgba(85, 85, 85, 1.00);
+  }
 }
 
 

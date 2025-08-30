@@ -650,7 +650,7 @@
 
             frags.push(
               `<li class="czcr-item" data-post-id="${pid}">
-                 <div class="czcr-top"><a class="czcr-link" href="${page_url}">${escapeHtml(meta.title || '—')}</a></div>
+                 <div class="czcr-top"><a class="czcr-link" href="${page_url}">${meta.title || '—'}</a></div>
                  <div class="czcr-bottom">
                    <span class="czcr-percent">${overall_pct}%</span>
                    <button type="button" class="czcr-list-mark">Segna come letto</button>

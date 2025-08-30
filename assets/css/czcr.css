@@ -7,27 +7,43 @@
   --czcr-bg-alt: rgba(20,20,20,.85);
   --czcr-border: rgba(60,60,60,1);
   --czcr-border-strong: rgba(40,40,40,1);
-  --czcr-text: #98989B;
-  --czcr-text-accent: #439cd6;
-  --czcr-text-muted: #ccc;
-  --czcr-btn-pressed-bg: #f0fff0;
-  --czcr-btn-pressed-border: #9ccc9c;
+  --czcr-text: rgba(152,152,152,1);
+  --czcr-text-accent:  rgba(67, 156, 214, 1.00);
+  --czcr-btn-pressed-bg: rgba(240, 255, 240, 1.00);
+  --czcr-btn-pressed-border: rgba(156, 204, 156, 1.00);
   --czcr-backdrop: rgba(0,0,0,.68);
 }
 
 /* Override per tema chiaro */
 html[data-theme="light"] {
-  --czcr-bg: #fff;
-  --czcr-bg-hover: #f7f7f7;
+  --czcr-bg: rgba(255,255,255,1);
+  --czcr-bg-hover: rgba(247, 247, 247, 1.00);
   --czcr-bg-alt: rgba(255,255,255,.9);
   --czcr-border: rgba(195,195,195,1);
-  --czcr-border-strong: #bbb;
-  --czcr-text: #1f1f1f;
-  --czcr-text-accent: #0b6cbf;
-  --czcr-text-muted: #555;
-  --czcr-btn-pressed-bg: #e6ffe6;
-  --czcr-btn-pressed-border: #6cbf6c;
+  --czcr-border-strong: rgba(187, 187, 187, 1);
+  --czcr-text: rgba(31, 31, 31, 1.00);
+  --czcr-text-accent: rgba(11, 108, 191, 1);
+  --czcr-btn-pressed-bg: rgba(230, 255, 230, 1);
+  --czcr-btn-pressed-border: rgba(108, 191, 108, 1);
   --czcr-backdrop: rgba(0,0,0,.35);
+}
+
+/* Override AUTOMATICO se NON c’è data-theme: usa la preferenza di sistema  */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+
+    --czcr-bg: rgba(255,255,255,1);
+    --czcr-bg-hover: rgba(247, 247, 247, 1.00);
+    --czcr-bg-alt: rgba(255,255,255,.9);
+    --czcr-border: rgba(195,195,195,1);
+    --czcr-border-strong: rgba(187, 187, 187, 1);
+    --czcr-text: rgba(31, 31, 31, 1.00);
+    --czcr-text-accent: rgba(11, 108, 191, 1);
+    --czcr-btn-pressed-bg: rgba(230, 255, 230, 1);
+    --czcr-btn-pressed-border: rgba(108, 191, 108, 1);
+    --czcr-backdrop: rgba(0,0,0,.35);
+  }
 }
 
 /* --- Stili esistenti, con variabili --- */
