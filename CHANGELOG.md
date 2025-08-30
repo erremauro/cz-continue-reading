@@ -54,7 +54,8 @@ page change.
 - Initial Commit
 
 
-[Unreleased]: https://github.com/erremauro/cz-continue-reading/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/erremauro/cz-continue-reading/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.4.1
 [1.4.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.4.0
 [1.3.1]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.3.1
 [1.3.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.3.0
