@@ -149,12 +149,9 @@
   }
 
   async function maybeOfferResume(postCtx) {
-    // Se è lo steso post → non  riproporre
     if (isSamePostReferrer(postCtx.permalink)) return;
-    // Se abbiamo già chiesto in questa visita → non riproporre
     if (wasAsked(postCtx.id)) return;
 
-    // Recupera record: server per loggati, LS per ospiti
     let rec = null;
     if (isLogged) {
       try {
@@ -173,14 +170,12 @@
     const pct   = clamp(Number(pages[lp] || 0), 0, 100);
     const overall = clamp(Number(rec.percent_overall || 0), 0, 100);
 
-    // Solo se “in corso” (0<overall<100) e con posizione significativa
     if (!(overall > 0 && overall < 100)) return;
-    if (pct < 5) return; // troppo vicino all’inizio → inutile proporre
+    if (pct < 5) return;
 
     const currentPage = Number(postCtx.currentPage || 1);
     const needPageJump = (lp !== currentPage);
 
-    // Non proporre se la posizione è praticamente raggiunta
     const contentH = docHeights();
     const centerY = window.scrollY + window.innerHeight/2;
     const currentPct = clamp((centerY / Math.max(1, contentH)) * 100, 0, 100);
@@ -192,12 +187,10 @@
       onResume: () => {
         try { markAsked(postCtx.id); } catch {}
         if (needPageJump) {
-          // vai alla pagina corretta senza leak posizione
           const base = (postCtx.permalink || '').replace(/\/?$/, '/');
           const url  = (lp > 1) ? (base + String(lp) + '/') : base;
           window.location.href = url;
         } else {
-          // stessa pagina: scroll alla percentuale
           scrollToPercent(pct);
         }
       },
@@ -273,18 +266,14 @@
     if (DEBUG) dlog('startTracking', postCtx);
     if (!postCtx || !postCtx.id) return;
 
-    // Se ci sono link di paginazione, segna la visita continua sullo stesso post
     (function bindPaginationVisitGuard() {
       const root = document.querySelector(cfg.selectors.postPagination);
       if (!root) return;
       root.querySelectorAll('a[href]').forEach(a => {
-        a.addEventListener('click', () => {
-          setVisit(postCtx.id, true); // sto passando a un'altra pagina dello stesso post
-        }, { capture:true, passive:true });
+        a.addEventListener('click', () => { setVisit(postCtx.id, true); }, { capture:true, passive:true });
       });
     })();
 
-    // SALVATAGGI SOLO DOPO GESTO UTENTE
     let hasUserInteracted = false;
     const markInteracted = () => { hasUserInteracted = true; };
     window.addEventListener('scroll',     markInteracted, { passive:true, once:true });
@@ -292,15 +281,14 @@
     window.addEventListener('touchstart', markInteracted, { passive:true, once:true });
     window.addEventListener('keydown',    markInteracted, {                once:true });
 
-    // Fondo con isteresi
     const BOTTOM_ENTER_MARGIN = 0;
     const BOTTOM_EXIT_MARGIN  = 120;
     let bottomLatched = false;
 
     let lastSavedOverall = -1;
     let locked = false;
-    let maxOverallReached = 0;   // picco complessivo raggiunto
-    let decStartTs = null;       // dwell per i decrementi
+    let maxOverallReached = 0;
+    let decStartTs = null;
     let lastOverallForDwell = null;
 
     document.addEventListener('czcr:lock', (e) => {
@@ -314,7 +302,6 @@
     const postFooterEl = document.querySelector(cfg.selectors.postFooter);
 
     function isAtBottomCenter() {
-      // mai 100% finché l’utente non interagisce
       if (!hasUserInteracted) { if (DEBUG) dlog('bottom? NO (no user interaction)'); return false; }
 
       const centerY = window.scrollY + (window.innerHeight/2);
@@ -324,7 +311,6 @@
       const targets = [footEl, pagEl, postFooterEl].filter(Boolean);
       let triggerTop = Infinity;
 
-      // anti-100 “facile” su mono-pagina: richiedi centro > 80% prima di considerare target
       if (postCtx.totalPages === 1) {
         const NEED_CENTER_RATIO = 0.80;
         const centerRatio = (window.scrollY + window.innerHeight/2) / Math.max(1, docH);
@@ -332,9 +318,8 @@
       }
 
       if (targets.length) {
-        const MIN_TARGET_DOC_RATIO = 0.60; // considera target solo se posizionati oltre il 60% del doc
+        const MIN_TARGET_DOC_RATIO = 0.60;
         const minAllowed = docH * MIN_TARGET_DOC_RATIO;
-
         for (const el of targets) {
           const rect = el.getBoundingClientRect();
           const topY = rect.top + window.scrollY;
@@ -346,16 +331,13 @@
                        (Number(postCtx.currentPage) === Number(postCtx.totalPages));
       if (!canLatch) { if (DEBUG) dlog('bottom? NO (not last page)'); bottomLatched = false; return false; }
 
-      // isteresi viewport
       const nearBottomEnter = (window.scrollY + window.innerHeight) >= (docH - 2);
       const nearBottomExit  = (window.scrollY + window.innerHeight) <  (docH - 40);
 
-      // isteresi target
       const hasValidTarget = (triggerTop !== Infinity);
       const enterByTargets = hasValidTarget && (centerY >= (triggerTop + BOTTOM_ENTER_MARGIN));
       const exitByTargets  = hasValidTarget && (centerY <  (triggerTop - BOTTOM_EXIT_MARGIN));
 
-      // su pagine corte, ignora nearBottom “puro”
       const enterByViewport = isSmallPage ? false : nearBottomEnter;
       const exitByViewport  = isSmallPage ? true  : nearBottomExit;
 
@@ -381,7 +363,6 @@
 
       if (isAtBottomCenter()) percent = 100;
 
-      // anti-100 “a freddo” per mono-pagina
       if (postCtx.totalPages === 1 && window.scrollY < 10) {
         percent = Math.min(percent, 99.9);
       }
@@ -390,7 +371,6 @@
       return clamp(percent, 0, 100);
     }
 
-    // Record iniziale
     let record;
     if (isLogged) {
       record = { post_id: postCtx.id, pages:{}, last_page:1, total_pages:postCtx.totalPages, percent_overall:0, status:'reading', updated_at:new Date().toISOString() };
@@ -404,12 +384,10 @@
 
     function saveIfNeeded() {
       if (!hasUserInteracted) return;
-      // if (locked) return; // riabilita se vuoi bloccare salvataggi quando segnato "letto"
 
       const page   = Number(postCtx.currentPage) || 1;
       const inPage = currentPagePercent();
 
-      // fill-forward per overall
       const pagesForOverall = Object.assign({}, record.pages, { [page]: inPage });
       for (let i = 1; i < page; i++) {
         if (typeof pagesForOverall[i] !== 'number' || pagesForOverall[i] < 100) pagesForOverall[i] = 100;
@@ -417,7 +395,6 @@
 
       const overall = computeOverallPercent(pagesForOverall, record.total_pages);
 
-      // anti-100 al load su mono-pagina (se ancora in top)
       if (postCtx.totalPages === 1 && inPage >= 100 && window.scrollY < 10) return;
 
       const centerRatio = (window.scrollY + window.innerHeight/2) / Math.max(1, docHeights());
@@ -425,7 +402,6 @@
         (centerRatio <= TOP_NO_SAVE_RATIO) &&
         (maxOverallReached >= (PEAK_GUARD_RATIO * 100));
 
-      // Dwell-per-decrease
       let allowSave = true;
       if (overall < record.percent_overall - 0.1) {
         if (inTopNoSaveZone) {
@@ -452,7 +428,6 @@
       const rounded = roundToStep(overall, SAVE_STEP);
       if (rounded <= lastSavedOverall && inPage < 100) return;
 
-      // commit
       record.pages[page]      = inPage;
       record.last_page        = page;
       record.percent_overall  = overall;
@@ -489,6 +464,12 @@
     window.addEventListener('beforeunload', () => { try{ saveIfNeeded(); }catch{} }, { capture:true });
   }
 
+  function markHasReadings(has) {
+    document.body.classList.toggle('czcr-readings-has', !!has);
+    document.body.classList.toggle('czcr-readings-empty', !has);
+    if (DEBUG) dlog('markHasReadings', { has: !!has  });
+  }
+
   /* ---------- Widget vuoto / empty state ---------- */
   function updateReadingsEmptyState(wrap) {
     if (!wrap || !wrap.matches || !wrap.matches('[data-czcr-readings]')) {
@@ -496,37 +477,22 @@
     }
     if (!wrap) return;
 
-    if (isLogged) {
-      const listEl  = wrap.querySelector('ul.czcr-list');
-      const isEmpty = !listEl || listEl.children.length === 0;
-      if (DEBUG) dlog('updateReadingsEmptyState (logged)', { isEmpty });
-      if (isEmpty) {
-        if (listEl) listEl.remove();
-        if (!wrap.querySelector('.czcr-empty')) {
-          wrap.insertAdjacentHTML('beforeend', `<p class="czcr-empty">${cfg.i18n.no_items}</p>`);
-        }
-      }
-    } else {
-      const listEl  = wrap.querySelector('[data-czcr-guest-list]');
-      const isEmpty = !listEl || listEl.children.length === 0;
-      if (DEBUG) dlog('updateReadingsEmptyState (guest)', { isEmpty });
-      if (isEmpty) {
-        tagBodyHasGuestReadings(false);
-        if (listEl) listEl.innerHTML = '';
-        let msgEl = wrap.querySelector('[data-czcr-guest-msg]');
-        if (!msgEl) {
-          const loginUrl = (cfg.urls && cfg.urls.login)    || '#';
-          const regUrl   = (cfg.urls && cfg.urls.register) || '#';
-          msgEl = document.createElement('p');
-          msgEl.className = 'czcr-guest-msg';
-          msgEl.setAttribute('data-czcr-guest-msg', '');
-          msgEl.innerHTML = `${cfg.i18n.login_to_keep_history
-            .replace('Accedi', `<a href="${loginUrl}">Accedi</a>`)
-            .replace('registrati', `<a href="${regUrl}">registrati</a>`)}`
-          wrap.appendChild(msgEl);
-        }
-      }
+    const listEl = wrap.querySelector('ul.czcr-list, [data-czcr-guest-list]');
+    const count  = listEl ? listEl.children.length : 0;
+
+    // Nascondi il blocco interno come prima…
+    wrap.hidden = count === 0;
+
+    // …e in più marca la SECTION per permettere di gestire visibilità/titolo via CSS
+    markHasReadings(count > 0);
+
+    // Body class per guest
+    if (!isLogged) {
+      tagBodyHasGuestReadings(count > 0);
+      if (listEl && count === 0) listEl.innerHTML = '';
     }
+
+    if (DEBUG) dlog('updateReadingsEmptyState →', { count, hidden: wrap.hidden, isLogged });
   }
 
   /* ---------- Mark toggles ---------- */
@@ -609,10 +575,12 @@
       }
 
       if (entries.length === 0) {
-        listEl.innerHTML = '';
-        if (msgEl) msgEl.textContent = cfg.i18n.no_items;
+        wrap.hidden = true;
         tagBodyHasGuestReadings(false);
-        if (DEBUG) dlog('guest readings body class', { has: false, entries: entries.length });
+        markHasReadings(false);
+        if (listEl) listEl.innerHTML = '';
+        if (msgEl) msgEl.textContent = '';
+        if (DEBUG) dlog('guest readings empty → hide');
         return;
       }
 
@@ -666,7 +634,7 @@
             btn.addEventListener('click', (e) => {
               const li  = e.currentTarget.closest('.czcr-item');
               if (!li) return;
-              const wrap= li.closest('[data-czcr-readings]');
+              const wrap2= li.closest('[data-czcr-readings]');
               const pid = Number(li.getAttribute('data-post-id'));
 
               const store2 = readLocal();
@@ -675,27 +643,23 @@
               store2[pid] = rec2; writeLocal(store2);
 
               li.remove();
-              updateReadingsEmptyState(wrap);
+              updateReadingsEmptyState(wrap2);
             });
           });
 
-          tagBodyHasGuestReadings(true);
-          if (DEBUG) dlog('guest readings body class', { has: true, entries: entries.length });
+          wrap.hidden = listEl.children.length === 0;
+          tagBodyHasGuestReadings(!wrap.hidden);
+          markHasReadings(!wrap.hidden);
+          if (msgEl) msgEl.textContent = '';
 
+          if (DEBUG) dlog('guest readings render →', { count: listEl.children.length, hidden: wrap.hidden });
         })
         .catch(() => {
-          // lasciamo la UI com'è in caso di errore
+          wrap.hidden = true;
+          tagBodyHasGuestReadings(false);
+          markHasReadings(false);
         });
 
-      if (msgEl) {
-        const loginUrl = cfg.urls && cfg.urls.login ? cfg.urls.login : null;
-        const regUrl   = cfg.urls && cfg.urls.register ? cfg.urls.register : null;
-        if (loginUrl && regUrl) {
-          msgEl.innerHTML = `${cfg.i18n.login_to_keep_history
-            .replace('Accedi', `<a href="${loginUrl}">Accedi</a>`)
-            .replace('registrati', `<a href="${regUrl}">registrati</a>`)}`
-        }
-      }
       return;
     }
     // logged-in: render già dal server
@@ -727,7 +691,6 @@
     for (const pid of keys) {
       const lrec = local[pid]; if (!lrec) continue;
 
-      // SALVAGUARDIA: non syncare "reading" già 100 (sporco)
       if ((lrec.status || 'reading') !== 'locked_done' && Number(lrec.percent_overall || 0) >= 100) {
         if (DEBUG) dlog('sync SKIP dirty 100%', { pid, lrec });
         continue;
@@ -759,23 +722,18 @@
     await trySyncAfterLogin();
 
     if (postCtx && postCtx.id) {
-      // Reset/attiva visita a seconda del referrer
       const samePost = isSamePostReferrer(postCtx.permalink);
       if (!samePost) {
-        // Nuova visita: pulisci stato precedente (così il prompt può ricomparire)
         clearVisit(postCtx.id);
         clearAsked(postCtx.id);
       }
-      // Stai entrando nel post: attiva la visita (vale per i passaggi di pagina)
       setVisit(postCtx.id, true);
 
-      // BACKWARD COMPAT: se l’URL ha ancora czcr_pos, lo rispettiamo (ma non lo generiamo più)
       const params = new URLSearchParams(location.search);
       const pos = params.has('czcr_pos') ? parseFloat(params.get('czcr_pos')) : null;
       if (!isNaN(pos) && pos !== null) {
         requestAnimationFrame(() => scrollToPercent(clamp(pos, 0, 100)));
       } else {
-        // nuova UX: offri la ripresa senza “leak” nell’URL (solo 1 volta per visita)
         maybeOfferResume(postCtx);
       }
 
@@ -784,6 +742,10 @@
 
     bindMarkToggle(postCtx);
     hydrateGuestWidget();
+
+    // Applica sempre la marcatura sezione in base al contenuto iniziale
+    document.querySelectorAll('[data-czcr-readings]').forEach(wrap => updateReadingsEmptyState(wrap));
+
     initFloatingToolbar();
   });
 })();
