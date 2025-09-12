@@ -154,11 +154,9 @@ html[data-theme="light"] {
   box-shadow: 0 10px 30px rgba(0,0,0,.2);
   font: inherit;
 }
-.czcr-resume-dialog h3 { line-height: 2; margin-bottom: .25em; }
-.czcr-res
-
-h3#czcr-resume-title {
+.czcr-resume-dialog h3 {
   font-size: 1.75rem;
+  margin-bottom: .25em;
 }
 
 .czcr-resume-actions {
