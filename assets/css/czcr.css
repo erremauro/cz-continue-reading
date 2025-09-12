@@ -150,12 +150,16 @@ html[data-theme="light"] {
   padding: 16px 18px;
   border-radius: 12px;
   min-width: 260px;
-  max-width: 90vw;
+  max-width: 85vw;
   box-shadow: 0 10px 30px rgba(0,0,0,.2);
   font: inherit;
 }
 .czcr-resume-dialog h3 { line-height: 2; margin-bottom: .25em; }
-.czcr-resume-dialog p { line-height: 1.68; }
+.czcr-res
+
+h3#czcr-resume-title {
+  font-size: 1.75rem;
+}
 
 .czcr-resume-actions {
   display: flex;
