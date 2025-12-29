@@ -20,7 +20,7 @@ html[data-theme="light"] {
   --czcr-toolbar-shadow: 0 -20px 24px rgba(250,250,250,1);
   --czcr-btn-bg: rgba(255,255,255,.5);
   --czcr-btn-bg-hover: rgba(255,255,255, 1);
-  --czcr-btn-border: rgba(204, 204, 204, 1);
+  --czcr-btn-border: rgba(255,255,255,1);
   --czcr-btn-shadow: 0 0 24px rgba(0,0,0,.25);
   --czcr-btn-text: rgba(44, 44, 44, 1);
   --czcr-focus-outline: rgba(85, 85, 85, 1.00);
@@ -36,7 +36,7 @@ html[data-theme="light"] {
     --czcr-toolbar-shadow: 0 -20px 24px rgba(250,250,250,1);
     --czcr-btn-bg: rgba(255,255,255,.5);
     --czcr-btn-bg-hover: rgba(255,255,255, 1);
-    --czcr-btn-border: rgba(204, 204, 204, 1);
+    --czcr-btn-border: rgba(255,255,255,1);
     --czcr-btn-shadow: 0 0 24px rgba(0,0,0,.25);
     --czcr-btn-text: rgba(44, 44, 44, 1);
     --czcr-focus-outline: rgba(85, 85, 85, 1.00);
@@ -95,7 +95,7 @@ html[data-theme="light"] {
 
   border: 1px solid var(--czcr-btn-border);
   background: var(--czcr-btn-bg);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(4px);
   color: var(--czcr-btn-text);
   border-radius: 999px;
   box-shadow: var(--czcr-btn-shadow);
