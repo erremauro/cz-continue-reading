@@ -12,6 +12,15 @@
 
   const cfg = window.CZCR;
 
+  // Allow opt-out via query param: ?cr=disabled
+  const isDisabledByQuery = (() => {
+    try {
+      const qp = new URLSearchParams(location.search);
+      return qp.get('cr') === 'disabled';
+    } catch { return false; }
+  })();
+  if (isDisabledByQuery) return;
+
   // === DEBUG ================================================================
   const DEBUG = (() => {
     try {
