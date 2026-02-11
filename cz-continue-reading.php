@@ -60,6 +60,7 @@ final class CZ_Continue_Reading {
         $login_url    = apply_filters( 'czcr_login_url', wp_login_url() );
         $register_url = apply_filters( 'czcr_register_url', wp_registration_url() );
         $home_url     = apply_filters( 'czcr_home_url', home_url( '/' ) );
+        $request_disabled = $this->is_continue_reading_disabled_for_request();
 
         // helper per ottenere path/url/version del file (preferendo .min.* se esiste e se !SCRIPT_DEBUG)
         $get_asset = function( $rel_path ) {
@@ -91,6 +92,7 @@ final class CZ_Continue_Reading {
 
         $config = [
             'version'         => self::VERSION,
+            'disabled'        => $request_disabled,
             'rest'            => [
                 'root'   => esc_url_raw( trailingslashit( rest_url( self::REST_NAMESPACE ) ) ),
                 'nonce'  => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : null,
@@ -149,6 +151,9 @@ final class CZ_Continue_Reading {
         if ( ! $post instanceof WP_Post || $post->post_type !== 'post' ) {
             return null;
         }
+        if ( ! $this->is_continue_reading_enabled_for_current_user() ) {
+            return null;
+        }
 
         $current_page = max( 1, intval( get_query_var( 'page' ) ) );
         if ( 0 === $current_page ) {
@@ -183,6 +188,9 @@ final class CZ_Continue_Reading {
             return '';
         }
         $post_id = (int) $post->ID;
+        if ( ! $this->is_continue_reading_enabled_for_current_user() ) {
+            return '';
+        }
 
         $locked_done = false;
         if ( is_user_logged_in() ) {
@@ -312,7 +320,6 @@ final class CZ_Continue_Reading {
                     if ( ! $post || ! in_array( $post->post_type, (array) $allowed_types, true ) ) {
                         continue;
                     }
-
                     // ⚠️ IMPORTANTE: definisci PRIMA di usarle
                     $status  = isset( $entry['status'] ) ? $entry['status'] : 'reading';
                     $overall = isset( $entry['percent_overall'] ) ? (float) $entry['percent_overall'] : 0.0;
@@ -421,6 +428,9 @@ final class CZ_Continue_Reading {
 
                     $post_id    = isset( $body['post_id'] ) ? intval( $body['post_id'] ) : 0;
                     if ( $post_id <= 0 ) return new WP_Error( 'czcr_bad_post', 'Invalid post_id', [ 'status' => 400 ] );
+                    if ( ! $this->is_continue_reading_enabled_for_current_user() ) {
+                        return new WP_Error( 'czcr_disabled_user', 'Continue reading disabled for this user', [ 'status' => 403 ] );
+                    }
 
                     // PRE: $body = $req->get_json_params();
                     $pages_in = ( isset( $body['pages'] ) && is_array( $body['pages'] ) ) ? $body['pages'] : [];
@@ -491,6 +501,9 @@ final class CZ_Continue_Reading {
                     $post_id  = isset( $params['post_id'] ) ? intval( $params['post_id'] ) : 0;
                     $locked   = ! empty( $params['locked'] );
                     if ( $post_id <= 0 ) return new WP_Error( 'czcr_bad_post', 'Invalid post_id', [ 'status' => 400 ] );
+                    if ( ! $this->is_continue_reading_enabled_for_current_user() ) {
+                        return new WP_Error( 'czcr_disabled_user', 'Continue reading disabled for this user', [ 'status' => 403 ] );
+                    }
 
                     $data = $this->get_user_progress( $user_id );
                     if ( ! isset( $data[ $post_id ] ) ) {
@@ -559,7 +572,6 @@ final class CZ_Continue_Reading {
                         if ( in_array( $pid, $excluded_ids, true ) ) {
                             continue;
                         }
-
                         // Calcola il numero di pagine totali del post (conteggio dei <!--nextpage-->)
                         $content     = (string) get_post_field( 'post_content', $pid );
                         $total_pages = 1 + substr_count( $content, '<!--nextpage-->' );
@@ -601,6 +613,31 @@ final class CZ_Continue_Reading {
             $acc += ( isset( $pages[ $i ] ) ? max( 0.0, min( 100.0, (float) $pages[ $i ] ) ) : 0.0 ) / 100.0;
         }
         return max( 0.0, min( 100.0, ( $acc / $total ) * 100.0 ) );
+    }
+
+    private function is_continue_reading_enabled_for_current_user() {
+        if ( ! is_user_logged_in() ) {
+            return true;
+        }
+
+        $user_id = (int) get_current_user_id();
+        if ( $user_id <= 0 ) {
+            return true;
+        }
+
+        // Stessa chiave usata nel tema: preferenza utente globale.
+        $raw = get_user_meta( $user_id, 'czup_continue_reading', true );
+
+        // Meta assente: fallback a feature attiva.
+        if ( '' === $raw && ! metadata_exists( 'user', $user_id, 'czup_continue_reading' ) ) {
+            return true;
+        }
+
+        return ! in_array( $raw, [ false, 'false', 0, '0', '', null ], true );
+    }
+
+    private function is_continue_reading_disabled_for_request() {
+        return ! $this->is_continue_reading_enabled_for_current_user();
     }
 
     /**

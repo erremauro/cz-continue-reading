@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.0] 2026-01-30
+## [1.8.0] 2026-02-11
+### Changed
+- Disable continue-reading tracking and related actions for posts where user preferences `czup_continue_reading` is set to false.
+
+## [1.7.0] 2026-01-30
 ### Changed
 - Disable the plug-in if 'cr=disabled' query param is specified in the URL
 
@@ -73,7 +77,9 @@ page change.
 - Initial Commit
 
 
-[Unreleased]: https://github.com/erremauro/cz-continue-reading/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/erremauro/cz-continue-reading/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.8.0
+[1.7.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.7.0
 [1.5.2]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.5.2
 [1.5.1]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.5.1
 [1.5.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.5.0

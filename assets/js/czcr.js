@@ -19,7 +19,8 @@
       return qp.get('cr') === 'disabled';
     } catch { return false; }
   })();
-  if (isDisabledByQuery) return;
+  const isDisabledByConfig = !!(cfg && cfg.disabled);
+  const isRuntimeDisabled = isDisabledByQuery || isDisabledByConfig;
 
   // === DEBUG ================================================================
   const DEBUG = (() => {
@@ -727,6 +728,11 @@
   /* ---------- Boot ---------- */
   document.addEventListener('DOMContentLoaded', async () => {
     const postCtx = (window.CZCR && window.CZCR.post) || null;
+
+    if (isRuntimeDisabled) {
+      initFloatingToolbar();
+      return;
+    }
 
     await trySyncAfterLogin();
 
