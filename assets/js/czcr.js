@@ -56,6 +56,7 @@
   const DECREASE_DWELL_MS  = typeof cfg.decreaseDwellMs === 'number' ? cfg.decreaseDwellMs : 1200;
   const TOP_NO_SAVE_RATIO  = typeof cfg.topNoSaveRatio === 'number'  ? cfg.topNoSaveRatio  : 0.15;
   const PEAK_GUARD_RATIO   = typeof cfg.peakGuardRatio  === 'number' ? cfg.peakGuardRatio  : 0.50;
+  const READ_THRESHOLD     = typeof cfg.readThreshold === 'number'   ? cfg.readThreshold   : 98;
 
   /* ---------- Storage ---------- */
   const readLocal   = () => { try { const raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : {}; } catch { return {}; } };
@@ -180,7 +181,7 @@
     const pct   = clamp(Number(pages[lp] || 0), 0, 100);
     const overall = clamp(Number(rec.percent_overall || 0), 0, 100);
 
-    if (!(overall > 0 && overall < 100)) return;
+    if (!(overall > 0 && overall < READ_THRESHOLD)) return;
     if (pct < 5) return;
 
     const currentPage = Number(postCtx.currentPage || 1);
@@ -496,6 +497,10 @@
     // …e in più marca la SECTION per permettere di gestire visibilità/titolo via CSS
     markHasReadings(count > 0);
 
+    // Mostra/nascondi il pulsante "Segna tutti come letti" solo se ci sono più di 1 articoli
+    const markAllBtn = wrap.querySelector('[data-czcr-mark-all]');
+    if (markAllBtn) markAllBtn.hidden = count <= 1;
+
     // Body class per guest
     if (!isLogged) {
       tagBodyHasGuestReadings(count > 0);
@@ -580,7 +585,7 @@
         const rec = store[pid];
         if (!rec || rec.status === 'locked_done') continue;
         const overall = Number(rec.percent_overall || 0);
-        if (overall <= 0 || overall >= 100) continue;
+        if (overall <= 0 || overall >= READ_THRESHOLD) continue;
         entries.push({ pid: Number(pid), rec });
       }
 
@@ -657,6 +662,39 @@
             });
           });
 
+          // Pulsante "Segna tutti come letti" per guest (mostrato solo se > 1 articoli)
+          const existingMarkAll = wrap.querySelector('[data-czcr-mark-all]');
+          if (existingMarkAll) existingMarkAll.remove();
+          if (frags.length > 1) {
+            const markAllBtn = document.createElement('button');
+            markAllBtn.type = 'button';
+            markAllBtn.className = 'czcr-mark-all-btn';
+            markAllBtn.setAttribute('data-czcr-mark-all', '');
+            const label = cfg.i18n && cfg.i18n.mark_all_as_read ? cfg.i18n.mark_all_as_read : 'Segna tutti come letti';
+            const svgIcon = '<svg class="czcr-mark-all-icon" width="20" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M1 7 L5 11.5 L13 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 7 L11 11.5 L19 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            markAllBtn.innerHTML = `${svgIcon} ${label}`;
+            wrap.insertBefore(markAllBtn, listEl);
+
+            markAllBtn.addEventListener('click', () => {
+              markAllBtn.disabled = true;
+              const storeAll = readLocal();
+              const nowAll = new Date().toISOString();
+              for (const pid of Object.keys(storeAll || {})) {
+                const recAll = storeAll[pid];
+                if (!recAll || recAll.status === 'locked_done') continue;
+                const overallAll = Number(recAll.percent_overall || 0);
+                if (overallAll <= 0 || overallAll >= 100) continue;
+                recAll.status = 'locked_done';
+                recAll.percent_overall = 100;
+                recAll.updated_at = nowAll;
+                storeAll[pid] = recAll;
+              }
+              writeLocal(storeAll);
+              listEl.innerHTML = '';
+              updateReadingsEmptyState(wrap);
+            });
+          }
+
           wrap.hidden = listEl.children.length === 0;
           tagBodyHasGuestReadings(!wrap.hidden);
           markHasReadings(!wrap.hidden);
@@ -689,6 +727,24 @@
     document.documentElement.classList.toggle('czcr-has-guest-readings', !!has);
   }
 
+  /* ---------- Mark-all button (logged-in, server-rendered) ---------- */
+  function bindMarkAllButton() {
+    document.querySelectorAll('[data-czcr-mark-all]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const wrap = btn.closest('[data-czcr-readings]');
+        if (isLogged) {
+          try { await apiFetch('/mark-all', { method: 'POST' }); } catch {}
+        }
+        if (wrap) {
+          const listEl = wrap.querySelector('ul.czcr-list, [data-czcr-guest-list]');
+          if (listEl) listEl.innerHTML = '';
+          updateReadingsEmptyState(wrap);
+        }
+      });
+    });
+  }
+
   /* ---------- Sync after login ---------- */
   async function trySyncAfterLogin() {
     if (!isLogged) return;
@@ -701,7 +757,7 @@
     for (const pid of keys) {
       const lrec = local[pid]; if (!lrec) continue;
 
-      if ((lrec.status || 'reading') !== 'locked_done' && Number(lrec.percent_overall || 0) >= 100) {
+      if ((lrec.status || 'reading') !== 'locked_done' && Number(lrec.percent_overall || 0) >= READ_THRESHOLD) {
         if (DEBUG) dlog('sync SKIP dirty 100%', { pid, lrec });
         continue;
       }
@@ -757,6 +813,7 @@
 
     bindMarkToggle(postCtx);
     hydrateGuestWidget();
+    bindMarkAllButton();
 
     // Applica sempre la marcatura sezione in base al contenuto iniziale
     document.querySelectorAll('[data-czcr-readings]').forEach(wrap => updateReadingsEmptyState(wrap));

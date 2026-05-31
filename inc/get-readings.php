@@ -26,8 +26,8 @@ if ( ! function_exists( 'czcr_get_readings' ) ) {
 			$status  = isset( $rec['status'] ) ? $rec['status'] : 'reading';
 			$overall = isset( $rec['percent_overall'] ) ? (float) $rec['percent_overall'] : 0.0;
 
-			// Criteria: in lettura (0<%<100) e non bloccato/letto
-			$include = ( 'locked_done' !== $status && $overall > 0 && $overall < 100 );
+			// Criteria: in lettura (0<%<READ_THRESHOLD) e non bloccato/letto
+			$include = ( 'locked_done' !== $status && $overall > 0 && $overall < CZ_Continue_Reading::READ_THRESHOLD );
 
 			/**
 			 * Filter to customize inclusion logic.

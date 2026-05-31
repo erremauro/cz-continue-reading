@@ -19,6 +19,7 @@ final class CZ_Continue_Reading {
     const REST_NAMESPACE    = 'czcr/v1';
     const USERMETA_KEY      = '_czcr_progress_v1'; // array keyed by post_id
     const LS_STORAGE_KEY    = 'czcr_progress_v1';  // for reference in JS
+    const READ_THRESHOLD    = 98;                  // percent_overall minimo per considerare un articolo "letto"
 
     private static $instance = null;
 
@@ -109,6 +110,7 @@ final class CZ_Continue_Reading {
             'i18n'           => [
                 'mark_as_read'          => __( 'Segna come letto', 'cz-continue-reading' ),
                 'mark_as_unread'        => __( 'Segna come da leggere', 'cz-continue-reading' ),
+                'mark_all_as_read'      => __( 'Segna tutti come letti', 'cz-continue-reading' ),
                 'login_to_keep_history' => __( 'Accedi oppure registrati per non perdere la cronologia di lettura.', 'cz-continue-reading' ),
                 'no_items'              => __( 'Nessun articolo in lettura.', 'cz-continue-reading' ),
                 'percent'               => __( '%', 'cz-continue-reading' ),
@@ -120,6 +122,7 @@ final class CZ_Continue_Reading {
                 'postPagination'  => 'div.post-pagination',
                 'postFooter'      => 'div.post-footer',
             ],
+            'readThreshold'   => apply_filters( 'czcr_read_threshold', self::READ_THRESHOLD ),
             'storageKey'      => self::LS_STORAGE_KEY,
             'saveStep'        => 1,
             'throttleMs'      => 300,
@@ -324,8 +327,8 @@ final class CZ_Continue_Reading {
                     $status  = isset( $entry['status'] ) ? $entry['status'] : 'reading';
                     $overall = isset( $entry['percent_overall'] ) ? (float) $entry['percent_overall'] : 0.0;
 
-                    // Mostra solo "in lettura" (0<%<100) e non locked
-                    if ( 'locked_done' === $status || $overall <= 0 || $overall >= 100 ) {
+                    // Mostra solo "in lettura" (0<%<READ_THRESHOLD) e non locked
+                    if ( 'locked_done' === $status || $overall <= 0 || $overall >= self::READ_THRESHOLD ) {
                         continue;
                     }
 
@@ -354,6 +357,16 @@ final class CZ_Continue_Reading {
                 if ( empty( $items ) ) {
                     echo '<p class="czcr-empty">' . esc_html__( 'Nessun articolo in lettura.', 'cz-continue-reading' ) . '</p>';
                 } else {
+                    $svg_check_all = '<svg class="czcr-mark-all-icon" width="20" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M1 7 L5 11.5 L13 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 7 L11 11.5 L19 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+                    if ( min( count( $items ), $limit ) > 1 ) {
+                        printf(
+                            '<button type="button" class="czcr-mark-all-btn" data-czcr-mark-all>%s %s</button>',
+                            $svg_check_all,
+                            esc_html__( 'Segna tutti come letti', 'cz-continue-reading' )
+                        );
+                    }
+
                     $count = 0;
                     echo '<ul class="czcr-list">';
                     foreach ( $items as $meta ) {
@@ -529,6 +542,36 @@ final class CZ_Continue_Reading {
                 'args'                => [
                     'post_id' => [ 'required' => true ],
                 ],
+            ]
+        );
+
+        register_rest_route(
+            self::REST_NAMESPACE,
+            '/mark-all',
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'permission_callback' => function () { return is_user_logged_in(); },
+                'callback'            => function () {
+                    $user_id = get_current_user_id();
+                    if ( ! $this->is_continue_reading_enabled_for_current_user() ) {
+                        return new WP_Error( 'czcr_disabled_user', 'Continue reading disabled for this user', [ 'status' => 403 ] );
+                    }
+                    $data = $this->get_user_progress( $user_id );
+                    $now  = current_time( 'mysql', true );
+                    foreach ( $data as $pid => &$rec ) {
+                        if ( ! is_array( $rec ) ) continue;
+                        $status  = isset( $rec['status'] ) ? $rec['status'] : 'reading';
+                        $overall = isset( $rec['percent_overall'] ) ? (float) $rec['percent_overall'] : 0.0;
+                        if ( 'locked_done' !== $status && $overall > 0 && $overall < 100 ) {
+                            $rec['status']          = 'locked_done';
+                            $rec['percent_overall'] = 100.0;
+                            $rec['updated_at']      = $now;
+                        }
+                    }
+                    unset( $rec );
+                    update_user_meta( $user_id, self::USERMETA_KEY, $data );
+                    return rest_ensure_response( [ 'success' => true ] );
+                },
             ]
         );
 

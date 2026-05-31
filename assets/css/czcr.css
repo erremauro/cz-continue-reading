@@ -121,6 +121,29 @@ html[data-theme="light"] {
 }
 .czcr-readings .czcr-list-mark:hover { background: var(--czcr-bg-hover); }
 
+.czcr-readings .czcr-mark-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4em;
+  margin-bottom: .75rem;
+  appearance: none;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--czcr-text);
+  opacity: 0.45;
+  font-size: .8rem;
+  font-family: inherit;
+  padding: .2rem .85rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.czcr-readings .czcr-mark-all-btn:hover { opacity: 1; }
+.czcr-readings .czcr-mark-all-btn:disabled { opacity: .2; cursor: default; }
+.czcr-readings .czcr-mark-all-icon { display: block; flex-shrink: 0; }
+
 .czcr-empty {
   font-style: italic;
   font-size: 1.2em;
