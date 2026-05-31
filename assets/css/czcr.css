@@ -135,7 +135,7 @@ html[data-theme="light"] {
   opacity: 0.45;
   font-size: .8rem;
   font-family: inherit;
-  padding: .2rem .85rem;
+  padding: .4rem .8rem;
   line-height: 1.5;
   white-space: nowrap;
   transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
