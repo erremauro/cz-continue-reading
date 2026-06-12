@@ -2,8 +2,8 @@
 /**
  * Plugin Name: CZ Continue Reading
  * Description: Tracks article reading progress (guests via localStorage, users via usermeta) and provides shortcodes: [readings] and [mark_as_read].
- * Version:     1.2.0
- * Author:      CZ
+ * Version:     1.9.2
+ * Author:      Roberto Mauro
  * Text Domain: cz-continue-reading
  */
 
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'CZCR_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
 final class CZ_Continue_Reading {
-    const VERSION           = '1.1.0';
+    const VERSION           = '1.9.2';
     const SLUG              = 'cz-continue-reading';
     const REST_NAMESPACE    = 'czcr/v1';
     const USERMETA_KEY      = '_czcr_progress_v1'; // array keyed by post_id
