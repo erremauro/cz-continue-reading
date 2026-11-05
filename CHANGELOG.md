@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] 2026-11-05
+### Added
+- Pulsante "Stampa" (icona stampante) nella toolbar flottante, a destra di "Su"; attributo `show_print` dello shortcode `[czcr_toolbar]` (default `1`). Il click emette l'evento annullabile `czcr:print` su `document`: se nessuno lo annulla parte `window.print()`, così il tema può gestire casi particolari (es. post paginati).
+- Regola `@media print` che nasconde la toolbar.
+### Changed
+- "Su" e "Stampa" sono raggruppati in `.czcr-toolbar__group`, dove altri plugin possono aggiungere pulsanti (cz-outline 1.1.0 vi inserisce l'icona dell'indice a sinistra di "Su").
+- Su mobile (< 768px) il gruppo è centrato nella toolbar, con "Home" a sinistra e gli eventuali pulsanti aggiunti da altri plugin (segnalibro, evidenziatore) a destra.
+
 ## [1.9.2] 2026-06-12
 ### Added
 - `uninstall.php` — removes `_czcr_progress_v1` usermeta from all users on plugin removal.

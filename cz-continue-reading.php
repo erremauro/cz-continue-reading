@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CZ Continue Reading
  * Description: Tracks article reading progress (guests via localStorage, users via usermeta) and provides shortcodes: [readings] and [mark_as_read].
- * Version:     1.9.2
+ * Version:     1.10.0
  * Author:      Roberto Mauro
  * Text Domain: cz-continue-reading
  */
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'CZCR_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
 final class CZ_Continue_Reading {
-    const VERSION           = '1.9.2';
+    const VERSION           = '1.10.0';
     const SLUG              = 'cz-continue-reading';
     const REST_NAMESPACE    = 'czcr/v1';
     const USERMETA_KEY      = '_czcr_progress_v1'; // array keyed by post_id
@@ -227,6 +227,7 @@ final class CZ_Continue_Reading {
                 'position'  => 'right',
                 'show_home' => '1',
                 'show_top'  => '1',
+                'show_print' => '1',
             ],
             $atts,
             'czcr_toolbar'
@@ -235,6 +236,7 @@ final class CZ_Continue_Reading {
         $pos = ( $atts['position'] === 'left' ) ? 'left' : 'right';
         $show_home = ( $atts['show_home'] === '1' );
         $show_top  = ( $atts['show_top']  === '1' );
+        $show_print = ( $atts['show_print'] === '1' );
 
         ob_start(); ?>
         <div
@@ -253,6 +255,10 @@ final class CZ_Continue_Reading {
                 </button>
             <?php endif; ?>
 
+            <?php if ( $show_top || $show_print ) : ?>
+            <div class="czcr-toolbar__group">
+            <?php endif; ?>
+
             <?php if ( $show_top ) : ?>
                 <button type="button" class="czcr-toolbar__btn" data-czcr-top aria-label="<?php esc_attr_e( 'Su', 'cz-continue-reading' ); ?>">
                     <span class="czcr-icon" aria-hidden="true">
@@ -262,6 +268,22 @@ final class CZ_Continue_Reading {
                         </svg>
                     </span>
                 </button>
+            <?php endif; ?>
+
+            <?php if ( $show_print ) : ?>
+                <?php // Il click emette l'evento annullabile `czcr:print`: se nessuno lo annulla parte window.print(). ?>
+                <button type="button" class="czcr-toolbar__btn" data-czcr-print aria-label="<?php esc_attr_e( 'Stampa', 'cz-continue-reading' ); ?>" title="<?php esc_attr_e( 'Stampa', 'cz-continue-reading' ); ?>">
+                    <span class="czcr-icon" aria-hidden="true">
+                        <!-- Printer icon -->
+                        <svg width="24" height="24" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z" fill="currentColor"/>
+                        </svg>
+                    </span>
+                </button>
+            <?php endif; ?>
+
+            <?php if ( $show_top || $show_print ) : ?>
+            </div>
             <?php endif; ?>
         </div>
 

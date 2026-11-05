@@ -126,6 +126,27 @@ html[data-theme="light"] {
   margin-inline-start: .5rem;
 }
 
+/* --- Gruppo "Su" + "Stampa" --- */
+.czcr-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+/* Mobile: "Home" a sinistra, "Su" e "Stampa" centrati, gli altri pulsanti
+   aggiunti da altri plugin (segnalibro, evidenziatore…) a destra. Il gruppo
+   è centrato in posizione assoluta così non dipende da quanti pulsanti ci
+   sono ai lati. */
+@media (max-width: 767.98px) {
+  .czcr-toolbar > [data-czcr-home] { margin-inline-end: auto; }
+  .czcr-toolbar > .czcr-toolbar__group {
+    position: absolute;
+    top: .75rem;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 /* --- Mobile tweaks --- */
 @media only screen and (max-width: 576px) {
   .czcr-toolbar { min-height: 4em; }
@@ -135,6 +156,10 @@ html[data-theme="light"] {
 @media (min-width: 768px) {
   .czcr-toolbar { justify-content: center; }
   .czcr-label { display: inline; }
+}
+
+@media print {
+  .czcr-toolbar { display: none !important; }
 }
 
 /* Optional: reduce motion */

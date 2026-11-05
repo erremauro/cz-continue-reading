@@ -227,6 +227,7 @@
 
     const homeBtn  = toolbar.querySelector('[data-czcr-home]');
     const topBtn   = toolbar.querySelector('[data-czcr-top]');
+    const printBtn = toolbar.querySelector('[data-czcr-print]');
     const headerEl = document.querySelector('header.site-header');
 
     if ('IntersectionObserver' in window && headerEl) {
@@ -262,6 +263,12 @@
     topBtn && topBtn.addEventListener('click', (e) => {
       e.preventDefault();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    // Il tema può gestire la stampa a modo suo (es. post paginati) annullando l'evento.
+    printBtn && printBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const ev = new CustomEvent('czcr:print', { cancelable: true });
+      if (document.dispatchEvent(ev)) window.print();
     });
   }
 
