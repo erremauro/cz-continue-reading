@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] 2026-11-05
+### Removed
+- Toolbar flottante (Home, Su, Stampa), shortcode `[czcr_toolbar]`, filtro `czcr_auto_toolbar` e asset `assets/css/czcr-toolbar.css`: la toolbar è ora di cz-core (`mu-plugins/cz-toolbar`, `.cz-toolbar`), con la stessa resa e gli stessi pulsanti. L'evento `czcr:print` è sostituito da `cz-toolbar:print`.
+- Stringhe `toolbar_home` e `toolbar_top` da `window.CZCR.i18n`.
+
 ## [1.10.0] 2026-11-05
 ### Added
 - Pulsante "Stampa" (icona stampante) nella toolbar flottante, a destra di "Su"; attributo `show_print` dello shortcode `[czcr_toolbar]` (default `1`). Il click emette l'evento annullabile `czcr:print` su `document`: se nessuno lo annulla parte `window.print()`, così il tema può gestire casi particolari (es. post paginati).
@@ -102,7 +107,8 @@ page change.
 - Initial Commit
 
 
-[Unreleased]: https://github.com/erremauro/cz-continue-reading/compare/v1.9.2...HEAD
+[Unreleased]: https://github.com/erremauro/cz-continue-reading/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v2.0.0
 [1.9.2]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.9.2
 [1.9.1]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.9.1
 [1.9.0]: https://github.com/erremauro/cz-continue-reading/releases/tag/v1.9.0

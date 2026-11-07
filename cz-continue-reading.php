@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CZ Continue Reading
  * Description: Tracks article reading progress (guests via localStorage, users via usermeta) and provides shortcodes: [readings] and [mark_as_read].
- * Version:     1.10.0
+ * Version:     2.0.0
  * Author:      Roberto Mauro
  * Text Domain: cz-continue-reading
  */
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'CZCR_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
 final class CZ_Continue_Reading {
-    const VERSION           = '1.10.0';
+    const VERSION           = '2.0.0';
     const SLUG              = 'cz-continue-reading';
     const REST_NAMESPACE    = 'czcr/v1';
     const USERMETA_KEY      = '_czcr_progress_v1'; // array keyed by post_id
@@ -34,25 +34,6 @@ final class CZ_Continue_Reading {
         add_action( 'init', [ $this, 'register_shortcodes' ] );
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
         add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
-        add_action( 'wp_footer', [ $this, 'maybe_print_toolbar' ] );
-    }
-
-    public function maybe_print_toolbar() {
-        // Mostra solo nei singoli articoli (non in home, pagine, archivi, ecc.)
-        if ( ! is_singular( 'post' ) ) {
-            return;
-        }
-
-        $enabled = apply_filters( 'czcr_auto_toolbar', true );
-        if ( ! $enabled ) {
-            return;
-        }
-
-        echo $this->shortcode_toolbar( [
-            'position'  => 'right',
-            'show_home' => '1',
-            'show_top'  => '1',
-        ] );
     }
 
     /** ---------------- Enqueue ---------------- */
@@ -114,8 +95,6 @@ final class CZ_Continue_Reading {
                 'login_to_keep_history' => __( 'Accedi oppure registrati per non perdere la cronologia di lettura.', 'cz-continue-reading' ),
                 'no_items'              => __( 'Nessun articolo in lettura.', 'cz-continue-reading' ),
                 'percent'               => __( '%', 'cz-continue-reading' ),
-                'toolbar_home'          => __( 'Home', 'cz-continue-reading' ),
-                'toolbar_top'           => __( 'Su', 'cz-continue-reading' ),
             ],
             'selectors'       => [
                 'footnotes'       => 'div.footnotes',
@@ -139,8 +118,6 @@ final class CZ_Continue_Reading {
         list( $css_main_url, $css_main_ver ) = $get_asset( 'assets/css/czcr.css' );
         wp_enqueue_style( 'czcr', $css_main_url, [], $css_main_ver );
 
-        list( $css_toolbar_url, $css_toolbar_ver ) = $get_asset( 'assets/css/czcr-toolbar.css' );
-        wp_enqueue_style( 'czcr-toolbar', $css_toolbar_url, [], $css_toolbar_ver );
     }
 
 
@@ -179,7 +156,6 @@ final class CZ_Continue_Reading {
     public function register_shortcodes() {
         add_shortcode( 'mark_as_read', [ $this, 'shortcode_mark_as_read' ] );
         add_shortcode( 'readings', [ $this, 'shortcode_readings' ] );
-        add_shortcode( 'czcr_toolbar', [ $this, 'shortcode_toolbar' ] );
     }
 
     public function shortcode_mark_as_read( $atts = [] ) {
@@ -214,80 +190,6 @@ final class CZ_Continue_Reading {
         </div>
         <?php
         return (string) ob_get_clean();
-    }
-
-    public function shortcode_toolbar( $atts = [] ) {
-        // Blocca la render se non siamo in un singolo articolo
-        if ( ! is_singular( 'post' ) ) {
-            return '';
-        }
-
-        $atts = shortcode_atts(
-            [
-                'position'  => 'right',
-                'show_home' => '1',
-                'show_top'  => '1',
-                'show_print' => '1',
-            ],
-            $atts,
-            'czcr_toolbar'
-        );
-
-        $pos = ( $atts['position'] === 'left' ) ? 'left' : 'right';
-        $show_home = ( $atts['show_home'] === '1' );
-        $show_top  = ( $atts['show_top']  === '1' );
-        $show_print = ( $atts['show_print'] === '1' );
-
-        ob_start(); ?>
-        <div
-            class="czcr-toolbar czcr-toolbar--<?php echo esc_attr( $pos ); ?>"
-            role="toolbar"
-            aria-hidden="true"
-        >
-            <?php if ( $show_home ) : ?>
-                <button type="button" class="czcr-toolbar__btn" data-czcr-home aria-label="<?php esc_attr_e( 'Home', 'cz-continue-reading' ); ?>">
-                    <span class="czcr-icon" aria-hidden="true">
-                        <!-- Home icon -->
-                        <svg width="24" height="24" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="M4 10.5L12 4l8 6.5V20a2 2 0 0 1-2 2h-4v-6H10v6H6a2 2 0 0 1-2-2v-9.5Z" fill="currentColor"/>
-                        </svg>
-                    </span>
-                </button>
-            <?php endif; ?>
-
-            <?php if ( $show_top || $show_print ) : ?>
-            <div class="czcr-toolbar__group">
-            <?php endif; ?>
-
-            <?php if ( $show_top ) : ?>
-                <button type="button" class="czcr-toolbar__btn" data-czcr-top aria-label="<?php esc_attr_e( 'Su', 'cz-continue-reading' ); ?>">
-                    <span class="czcr-icon" aria-hidden="true">
-                        <!-- Arrow up icon -->
-                        <svg width="24" height="24" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="M12 5l7 7-1.41 1.41L13 8.83V20h-2V8.83l-4.59 4.58L5 12l7-7Z" fill="currentColor"/>
-                        </svg>
-                    </span>
-                </button>
-            <?php endif; ?>
-
-            <?php if ( $show_print ) : ?>
-                <?php // Il click emette l'evento annullabile `czcr:print`: se nessuno lo annulla parte window.print(). ?>
-                <button type="button" class="czcr-toolbar__btn" data-czcr-print aria-label="<?php esc_attr_e( 'Stampa', 'cz-continue-reading' ); ?>" title="<?php esc_attr_e( 'Stampa', 'cz-continue-reading' ); ?>">
-                    <span class="czcr-icon" aria-hidden="true">
-                        <!-- Printer icon -->
-                        <svg width="24" height="24" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z" fill="currentColor"/>
-                        </svg>
-                    </span>
-                </button>
-            <?php endif; ?>
-
-            <?php if ( $show_top || $show_print ) : ?>
-            </div>
-            <?php endif; ?>
-        </div>
-
-        <?php return (string) ob_get_clean();
     }
 
     /**

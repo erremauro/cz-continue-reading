@@ -17,7 +17,6 @@ Funziona sia per **utenti loggati** che per **visitatori anonimi** (con salvatag
 - Shortcode `[readings]` per mostrare la lista degli articoli in corso di lettura.
 - Gestione per ospiti: se non loggati, il widget mostra un invito a **registrarsi o loggarsi** per non perdere la cronologia.
 - API REST personalizzate per aggiornare il progresso di lettura.
-- **Toolbar flottante**: mini barra sempre disponibile durante la lettura, senza dover tornare in cima.
 - **Dwell-per-decrease**: gli incrementi di progresso vengono salvati subito, i decrementi solo se l’utente resta fermo in alto per alcuni ms (per evitare falsi regressi).
 - **No-save zone**: la parte alta della pagina è esclusa dal tracking, così lo scroll per accedere al menu non influisce sulla percentuale.
 

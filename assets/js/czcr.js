@@ -4,7 +4,6 @@
  * - Throttled saves
  * - Fill-forward multi-page
  * - Dwell-per-decrease + top no-save zone (con isteresi sul fondo)
- * - Floating toolbar che appare quando l'header esce dal viewport
  */
 (function () {
   'use strict';
@@ -218,58 +217,6 @@
     const targetCenter  = clamp((percent/100)*contentHeight, 0, contentHeight);
     const y = clamp(targetCenter - (window.innerHeight/2), 0, Math.max(0, contentHeight - window.innerHeight));
     window.scrollTo({ top: y, behavior: ('instant' in window) ? 'instant' : 'auto' });
-  }
-
-  /* ---------- Floating toolbar ---------- */
-  function initFloatingToolbar() {
-    const toolbar  = document.querySelector('.czcr-toolbar');
-    if (!toolbar) return;
-
-    const homeBtn  = toolbar.querySelector('[data-czcr-home]');
-    const topBtn   = toolbar.querySelector('[data-czcr-top]');
-    const printBtn = toolbar.querySelector('[data-czcr-print]');
-    const headerEl = document.querySelector('header.site-header');
-
-    if ('IntersectionObserver' in window && headerEl) {
-      const io = new IntersectionObserver((entries) => {
-        const entry = entries[0];
-        const headerVisible = !!(entry && entry.isIntersecting && entry.intersectionRatio > 0);
-        toolbar.classList.toggle('is-visible', !headerVisible);
-        if (DEBUG) dlog('toolbar vis', { headerVisible, toolbarVisible: toolbar.classList.contains('is-visible') });
-      }, { root: null, threshold: [0, 0.01, 1] });
-      io.observe(headerEl);
-    } else {
-      const onScroll = () => {
-        let headerVisible = false;
-        if (headerEl) {
-          const r = headerEl.getBoundingClientRect();
-          headerVisible = (r.bottom > 0 && r.top < window.innerHeight);
-        } else {
-          headerVisible = (window.scrollY <= 10);
-        }
-        if (DEBUG) dlog('toolbar vis (fallback)', { headerVisible, scrollY: window.scrollY });
-        toolbar.classList.toggle('is-visible', !headerVisible);
-      };
-      window.addEventListener('scroll', onScroll, { passive:true });
-      window.addEventListener('resize', onScroll, { passive:true });
-      onScroll();
-    }
-
-    homeBtn && homeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const url = (cfg.urls && cfg.urls.home) || '/';
-      window.location.href = url;
-    });
-    topBtn && topBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    // Il tema può gestire la stampa a modo suo (es. post paginati) annullando l'evento.
-    printBtn && printBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const ev = new CustomEvent('czcr:print', { cancelable: true });
-      if (document.dispatchEvent(ev)) window.print();
-    });
   }
 
   /* ---------- Progress ---------- */
@@ -793,7 +740,6 @@
     const postCtx = (window.CZCR && window.CZCR.post) || null;
 
     if (isRuntimeDisabled) {
-      initFloatingToolbar();
       return;
     }
 
@@ -824,7 +770,5 @@
 
     // Applica sempre la marcatura sezione in base al contenuto iniziale
     document.querySelectorAll('[data-czcr-readings]').forEach(wrap => updateReadingsEmptyState(wrap));
-
-    initFloatingToolbar();
   });
 })();
