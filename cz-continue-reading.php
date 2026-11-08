@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CZ Continue Reading
  * Description: Tracks article reading progress (guests via localStorage, users via usermeta) and provides shortcodes: [readings] and [mark_as_read].
- * Version:     2.0.0
+ * Version:     2.1.0
  * Author:      Roberto Mauro
  * Text Domain: cz-continue-reading
  */
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'CZCR_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 
 final class CZ_Continue_Reading {
-    const VERSION           = '2.0.0';
+    const VERSION           = '2.1.0';
     const SLUG              = 'cz-continue-reading';
     const REST_NAMESPACE    = 'czcr/v1';
     const USERMETA_KEY      = '_czcr_progress_v1'; // array keyed by post_id
@@ -97,6 +97,7 @@ final class CZ_Continue_Reading {
                 'percent'               => __( '%', 'cz-continue-reading' ),
             ],
             'selectors'       => [
+                'content'         => apply_filters( 'czcr_content_selector', 'div.post-content' ),
                 'footnotes'       => 'div.footnotes',
                 'postPagination'  => 'div.post-pagination',
                 'postFooter'      => 'div.post-footer',
@@ -414,6 +415,11 @@ final class CZ_Continue_Reading {
                         'updated_at'      => current_time( 'mysql', true ),
                     ];
 
+                    $anchor = $this->sanitize_anchor( isset( $body['anchor'] ) ? $body['anchor'] : null, $total );
+                    if ( $anchor ) {
+                        $record['anchor'] = $anchor;
+                    }
+
                     $data             = $this->get_user_progress( $user_id );
                     $data[ $post_id ] = $record;
                     update_user_meta( $user_id, self::USERMETA_KEY, $data );
@@ -647,17 +653,49 @@ final class CZ_Continue_Reading {
             $changed = true;
         }
 
+        $out = [
+            'post_id'         => $post_id,
+            'pages'           => $pages,
+            'last_page'       => $lp,
+            'total_pages'     => $total,
+            'percent_overall' => $new_overall,
+            'status'          => $status,
+            'updated_at'      => isset( $rec['updated_at'] ) ? $rec['updated_at'] : current_time( 'mysql', true ),
+        ];
+
+        // Preserva l'ancora testuale (punto di lettura indipendente dal layout)
+        $anchor = $this->sanitize_anchor( isset( $rec['anchor'] ) ? $rec['anchor'] : null, $total );
+        if ( $anchor ) {
+            $out['anchor'] = $anchor;
+        }
+
         return [
-            'rec'     => [
-                'post_id'         => $post_id,
-                'pages'           => $pages,
-                'last_page'       => $lp,
-                'total_pages'     => $total,
-                'percent_overall' => $new_overall,
-                'status'          => $status,
-                'updated_at'      => isset( $rec['updated_at'] ) ? $rec['updated_at'] : current_time( 'mysql', true ),
-            ],
+            'rec'     => $out,
             'changed' => $changed,
+        ];
+    }
+
+    /**
+     * Ancora testuale del punto di lettura:
+     * - page: pagina (multipage) a cui si riferisce
+     * - i:    indice del blocco di testo dentro il contenuto dell'articolo
+     * - o:    frazione (0..1) del blocco già superata dalla linea di lettura
+     * - t:    impronta del testo del blocco (per riallinearsi se il contenuto cambia)
+     */
+    private function sanitize_anchor( $raw, $total ) {
+        if ( ! is_array( $raw ) || ! isset( $raw['i'] ) ) {
+            return null;
+        }
+        $page = isset( $raw['page'] ) ? max( 1, (int) $raw['page'] ) : 1;
+        if ( $page > max( 1, (int) $total ) ) {
+            return null;
+        }
+        $t = isset( $raw['t'] ) ? sanitize_text_field( (string) $raw['t'] ) : '';
+        return [
+            'page' => $page,
+            'i'    => max( 0, (int) $raw['i'] ),
+            'o'    => isset( $raw['o'] ) ? max( 0.0, min( 1.0, round( (float) $raw['o'], 4 ) ) ) : 0.0,
+            't'    => function_exists( 'mb_substr' ) ? mb_substr( $t, 0, 48 ) : substr( $t, 0, 48 ),
         ];
     }
 

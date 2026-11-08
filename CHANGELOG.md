@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] 2026-11-08
+### Fixed
+- Reading position now restores to the same text across devices. It was saved as a percentage of the whole page height, which maps to different text on mobile and on desktop (text reflows, images scale and header/footer take a different share). The position is now also saved as a text anchor (block index + fraction past the reading line + text fingerprint) and restored from it. Old records without an anchor fall back to the percentage.
+- Logged-in users: tracking started from an empty record, so the first scroll (even behind the resume prompt) could overwrite progress saved on another device. Tracking now starts from the saved record and waits until the resume prompt is answered.
+- Moving back up in the text is saved again after the dwell time. It was blocked by the percentage-step check.
+- Resuming on another page of a multi-page post now scrolls to the saved point instead of the top of the page.
+### Added
+- Saves on `pagehide` / `visibilitychange` with `keepalive`, because `beforeunload` is unreliable on mobile.
+- After restoring, the position is realigned while images and fonts above it load, until the user interacts.
+- `czcr_content_selector` filter (default `div.post-content`).
 ## [2.0.0] 2026-11-05
 ### Removed
 - Toolbar flottante (Home, Su, Stampa), shortcode `[czcr_toolbar]`, filtro `czcr_auto_toolbar` e asset `assets/css/czcr-toolbar.css`: la toolbar è ora di cz-core (`mu-plugins/cz-toolbar`, `.cz-toolbar`), con la stessa resa e gli stessi pulsanti. L'evento `czcr:print` è sostituito da `cz-toolbar:print`.

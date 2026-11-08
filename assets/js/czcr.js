@@ -63,14 +63,14 @@
   const removeLocal = ()   => { try { localStorage.removeItem(storageKey); } catch {} };
 
   /* ---------- REST ---------- */
-  async function apiFetch(path, { method = 'GET', body } = {}) {
+  async function apiFetch(path, { method = 'GET', body, keepalive = false } = {}) {
     const root = (cfg.rest && cfg.rest.root) ? cfg.rest.root : '';
     const url  = (root.endsWith('/') ? root : root + '/') + String(path || '').replace(/^\/+/, '');
     const headers = { 'Content-Type': 'application/json' };
     if (cfg.rest && cfg.rest.nonce) headers['X-WP-Nonce'] = cfg.rest.nonce;
 
     if (DEBUG) dlog('API →', method, url, body ? {body} : '(no body)');
-    const res = await fetch(url, { method, headers, credentials: 'same-origin', body: body ? JSON.stringify(body) : undefined });
+    const res = await fetch(url, { method, headers, credentials: 'same-origin', keepalive, body: body ? JSON.stringify(body) : undefined });
     let outText = '';
     try { outText = await res.text(); } catch {}
     if (DEBUG) dlog('API ←', res.status, outText);
@@ -105,6 +105,137 @@
     const ro = new ResizeObserver(()=>docHeights());
     try { ro.observe(document.documentElement); ro.observe(document.body); } catch {}
   }
+
+  /* ---------- Text anchor (layout-independent reading point) ----------
+   * La percentuale sull'altezza del documento cambia tra mobile e desktop
+   * (testo e immagini scalano in modo diverso, header/footer pesano diversamente).
+   * L'ancora invece identifica il blocco di testo sulla linea di lettura
+   * (centro del viewport) + la frazione già superata, ed è stabile tra layout.
+   */
+  const BLOCK_SEL = 'p,h1,h2,h3,h4,h5,h6,li,dt,dd,blockquote,pre,figure,table,hr,img,iframe,video';
+  let __blocksCache = null;
+
+  function contentRoot() {
+    const sel = (cfg.selectors && cfg.selectors.content) || 'div.post-content';
+    return document.querySelector(sel);
+  }
+
+  function textBlocks() {
+    if (__blocksCache && __blocksCache.every(el => el.isConnected)) return __blocksCache;
+    const root = contentRoot();
+    if (!root) { __blocksCache = []; return __blocksCache; }
+    const skip = [cfg.selectors && cfg.selectors.postPagination, 'nav', '.czcr-mark', '[data-czcr-mark]']
+      .filter(Boolean).join(',');
+    __blocksCache = Array.from(root.querySelectorAll(BLOCK_SEL)).filter(el =>
+      !el.querySelector(BLOCK_SEL) && !(skip && el.closest(skip))
+    );
+    if (DEBUG) dlog('textBlocks', __blocksCache.length);
+    return __blocksCache;
+  }
+  if ('MutationObserver' in window) {
+    document.addEventListener('DOMContentLoaded', () => {
+      const root = contentRoot();
+      if (root) new MutationObserver(() => { __blocksCache = null; }).observe(root, { childList: true, subtree: true });
+    });
+  }
+
+  function blockFingerprint(el) {
+    const raw = el.textContent || el.getAttribute('alt') || el.getAttribute('src') || el.tagName;
+    return String(raw).replace(/\s+/g, ' ').trim().slice(0, 48);
+  }
+
+  function readingLineY() { return window.innerHeight / 2; }
+
+  // Ancora del blocco sulla linea di lettura (o null se siamo sopra il contenuto)
+  function currentAnchor() {
+    const blocks = textBlocks();
+    if (!blocks.length) return null;
+    const line = readingLineY();
+    let hit = -1, hitRect = null;
+    for (let i = 0; i < blocks.length; i++) {
+      const r = blocks[i].getBoundingClientRect();
+      if (r.height <= 0 && r.width <= 0) continue; // nascosto
+      if (r.top > line) break;
+      hit = i; hitRect = r;
+    }
+    if (hit < 0) return null;
+    const o = hitRect.height > 0 ? clamp((line - hitRect.top) / hitRect.height, 0, 1) : 1;
+    return { i: hit, o: Math.round(o * 10000) / 10000, t: blockFingerprint(blocks[hit]) };
+  }
+
+  function resolveAnchorEl(anchor) {
+    const blocks = textBlocks();
+    if (!blocks.length || !anchor || typeof anchor.i !== 'number') return null;
+    let idx = anchor.i;
+    // Se il contenuto è cambiato, cerca il blocco con la stessa impronta più vicino
+    if (anchor.t && (!blocks[idx] || blockFingerprint(blocks[idx]) !== anchor.t)) {
+      let best = -1;
+      for (let i = 0; i < blocks.length; i++) {
+        if (blockFingerprint(blocks[i]) === anchor.t && (best < 0 || Math.abs(i - anchor.i) < Math.abs(best - anchor.i))) best = i;
+      }
+      if (best >= 0) idx = best;
+    }
+    idx = clamp(idx, 0, blocks.length - 1);
+    // Salta blocchi nascosti in questo layout
+    for (let i = idx; i < blocks.length; i++) {
+      const r = blocks[i].getBoundingClientRect();
+      if (r.height > 0 || r.width > 0) return { el: blocks[i], o: i === idx ? (anchor.o || 0) : 0 };
+    }
+    return null;
+  }
+
+  function anchorScrollY(anchor) {
+    const hit = resolveAnchorEl(anchor);
+    if (!hit) return null;
+    const r = hit.el.getBoundingClientRect();
+    const docH = docHeights();
+    const y = window.scrollY + r.top + clamp(hit.o, 0, 1) * r.height - readingLineY();
+    return clamp(y, 0, Math.max(0, docH - window.innerHeight));
+  }
+
+  function instantScroll(y) {
+    try { window.scrollTo({ top: y, behavior: 'instant' }); } catch { window.scrollTo(0, y); }
+  }
+
+  // Scrolla all'ancora e si riallinea per qualche secondo mentre immagini/font
+  // sopra il punto cambiano altezza; si ferma appena l'utente interagisce.
+  function scrollToAnchor(anchor, { settleMs = 3000 } = {}) {
+    const y = anchorScrollY(anchor);
+    if (y === null) return false;
+    instantScroll(y);
+    if (DEBUG) dlog('scrollToAnchor', { anchor, y });
+
+    const root = contentRoot();
+    if (!root || !('ResizeObserver' in window) || settleMs <= 0) return true;
+
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      ro.disconnect();
+      ['wheel','touchstart','keydown','pointerdown'].forEach(ev => window.removeEventListener(ev, stop, true));
+    };
+    const ro = new ResizeObserver(() => {
+      if (stopped) return;
+      const y2 = anchorScrollY(anchor);
+      if (y2 !== null && Math.abs(y2 - window.scrollY) > 2) instantScroll(y2);
+    });
+    ro.observe(root);
+    ['wheel','touchstart','keydown','pointerdown'].forEach(ev => window.addEventListener(ev, stop, { capture: true, passive: true }));
+    setTimeout(stop, settleMs);
+    return true;
+  }
+
+  // Ripristina un record: ancora se valida per questa pagina, altrimenti percentuale legacy
+  function restoreRecordPosition(rec, page) {
+    const a = rec && rec.anchor;
+    if (a && Number(a.page || 1) === Number(page) && scrollToAnchor(a)) return;
+    const pct = clamp(Number((rec && rec.pages && rec.pages[page]) || 0), 0, 100);
+    scrollToPercent(pct);
+  }
+
+  // Salto di pagina (multipage): il ripristino avviene dopo la navigazione
+  function kJump(pid){ return `czcr_resume_jump_${pid}`; }
 
   /* ---------- Resume prompt (UI minimale) ---------- */
   function renderResumePrompt({ onResume, onStartOver }) {
@@ -158,57 +289,72 @@
     } catch { return false; }
   }
 
-  async function maybeOfferResume(postCtx) {
-    if (isSamePostReferrer(postCtx.permalink)) return;
-    if (wasAsked(postCtx.id)) return;
+  // Ritorna true se il prompt è stato mostrato (il tracker resta in pausa fino alla scelta)
+  function maybeOfferResume(postCtx, rec, tracker) {
+    const release = () => { tracker && tracker.release(); };
 
-    let rec = null;
-    if (isLogged) {
-      try {
-        const prog = await apiFetch('/progress');
-        rec = prog && prog[postCtx.id];
-      } catch {}
-    } else {
-      const store = readLocal();
-      rec = store && store[postCtx.id];
-    }
-    if (!rec) return;
+    if (isSamePostReferrer(postCtx.permalink)) return false;
+    if (wasAsked(postCtx.id)) return false;
+    if (!rec || rec.status === 'locked_done') return false;
 
     const lp = Number(rec.last_page || 1);
-    const total = Number(rec.total_pages || 1);
     const pages = rec.pages || {};
     const pct   = clamp(Number(pages[lp] || 0), 0, 100);
     const overall = clamp(Number(rec.percent_overall || 0), 0, 100);
 
-    if (!(overall > 0 && overall < READ_THRESHOLD)) return;
-    if (pct < 5) return;
+    if (!(overall > 0 && overall < READ_THRESHOLD)) return false;
+    if (pct < 5) return false;
 
     const currentPage = Number(postCtx.currentPage || 1);
     const needPageJump = (lp !== currentPage);
 
-    const contentH = docHeights();
-    const centerY = window.scrollY + window.innerHeight/2;
-    const currentPct = clamp((centerY / Math.max(1, contentH)) * 100, 0, 100);
-    if (!needPageJump && Math.abs(currentPct - pct) < 5) return;
+    if (!needPageJump) {
+      const a = rec.anchor;
+      const targetY = (a && Number(a.page || 1) === currentPage) ? anchorScrollY(a) : null;
+      if (targetY !== null) {
+        if (Math.abs(targetY - window.scrollY) < window.innerHeight / 2) return false;
+      } else {
+        const centerY = window.scrollY + window.innerHeight/2;
+        const currentPct = clamp((centerY / Math.max(1, docHeights())) * 100, 0, 100);
+        if (Math.abs(currentPct - pct) < 5) return false;
+      }
+    }
 
-    if (DEBUG) dlog('resume: offer', { lp, currentPage, needPageJump, targetPct: pct, currentPct });
+    if (DEBUG) dlog('resume: offer', { lp, currentPage, needPageJump, targetPct: pct, anchor: rec.anchor });
 
     renderResumePrompt({
       onResume: () => {
         try { markAsked(postCtx.id); } catch {}
         if (needPageJump) {
+          try { sessionStorage.setItem(kJump(postCtx.id), JSON.stringify(rec)); } catch {}
           const base = (postCtx.permalink || '').replace(/\/?$/, '/');
           const url  = (lp > 1) ? (base + String(lp) + '/') : base;
           window.location.href = url;
         } else {
-          scrollToPercent(pct);
+          restoreRecordPosition(rec, currentPage);
+          release();
         }
       },
       onStartOver: () => {
         try { markAsked(postCtx.id); } catch {}
+        tracker && tracker.resetBaseline();
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        release();
       }
     });
+    return true;
+  }
+
+  // Dopo un salto di pagina dal prompt: ripristina il punto sulla nuova pagina
+  function consumePendingJump(postCtx) {
+    let rec = null;
+    try {
+      const raw = sessionStorage.getItem(kJump(postCtx.id));
+      if (raw) { sessionStorage.removeItem(kJump(postCtx.id)); rec = JSON.parse(raw); }
+    } catch {}
+    if (!rec || Number(rec.last_page || 1) !== Number(postCtx.currentPage || 1)) return false;
+    restoreRecordPosition(rec, Number(postCtx.currentPage || 1));
+    return true;
   }
 
   /* ---------- Deep-link only (compat) ---------- */
@@ -227,9 +373,13 @@
     return clamp((acc/totalPages)*100, 0, 100);
   }
 
-  function startTracking(postCtx) {
+  function startTracking(postCtx, initialRec) {
     if (DEBUG) dlog('startTracking', postCtx);
-    if (!postCtx || !postCtx.id) return;
+    if (!postCtx || !postCtx.id) return null;
+
+    // In pausa finché l'utente non risponde al prompt di ripresa: altrimenti
+    // uno scroll dietro al modale sovrascriverebbe il punto salvato altrove.
+    let held = true;
 
     (function bindPaginationVisitGuard() {
       const root = document.querySelector(cfg.selectors.postPagination);
@@ -336,22 +486,42 @@
       return clamp(percent, 0, 100);
     }
 
-    let record;
-    if (isLogged) {
-      record = { post_id: postCtx.id, pages:{}, last_page:1, total_pages:postCtx.totalPages, percent_overall:0, status:'reading', updated_at:new Date().toISOString() };
-    } else {
-      const store = readLocal();
-      record = store[postCtx.id] || { post_id: postCtx.id, pages:{}, last_page:1, total_pages:postCtx.totalPages, percent_overall:0, status:'reading', updated_at:new Date().toISOString() };
-    }
-    for (let i=1;i<=postCtx.totalPages;i++) if (typeof record.pages[i] !== 'number') record.pages[i]=0;
+    // Parte dal record esistente (server per i loggati, localStorage per i guest):
+    // prima i loggati partivano da 0 e il primo scroll sovrascriveva il progresso.
+    const blank = () => ({ post_id: postCtx.id, pages:{}, last_page:1, total_pages:postCtx.totalPages, percent_overall:0, status:'reading', updated_at:new Date().toISOString() });
+    let record = initialRec ? JSON.parse(JSON.stringify(initialRec)) : blank();
+    if (!record.pages || typeof record.pages !== 'object') record.pages = {};
+    for (let i=1;i<=postCtx.totalPages;i++) if (typeof record.pages[i] !== 'number') record.pages[i]=Number(record.pages[i])||0;
     record.total_pages = postCtx.totalPages;
-    maxOverallReached  = clamp(record.percent_overall || 0, 0, 100);
+    record.percent_overall = Number(record.percent_overall) || 0;
 
-    function saveIfNeeded() {
+    // La percentuale salvata è stata misurata su un altro layout (es. mobile):
+    // la ri-traduciamo nel layout corrente partendo dall'ancora, così la
+    // protezione anti-regressione confronta grandezze omogenee.
+    (function rebaseFromAnchor() {
+      const page = Number(postCtx.currentPage) || 1;
+      const a = record.anchor;
+      if (!a || Number(a.page || 1) !== page || record.status === 'locked_done') return;
+      if (Number(record.pages[page]) >= 100) return;
+      const y = anchorScrollY(a);
+      if (y === null) return;
+      const pct = clamp(((y + window.innerHeight/2) / Math.max(1, docHeights())) * 100, 0, 99.9);
+      record.pages[page] = pct;
+      record.percent_overall = computeOverallPercent(record.pages, record.total_pages);
+      if (DEBUG) dlog('rebaseFromAnchor', { page, pct, overall: record.percent_overall });
+    })();
+
+    maxOverallReached  = clamp(record.percent_overall || 0, 0, 100);
+    let lastSavedAnchorKey = null;
+
+    function saveIfNeeded(opts) {
+      if (held) return;
       if (!hasUserInteracted) return;
 
       const page   = Number(postCtx.currentPage) || 1;
       const inPage = currentPagePercent();
+      const anchor = currentAnchor();
+      const anchorKey = anchor ? `${page}:${anchor.i}` : null;
 
       const pagesForOverall = Object.assign({}, record.pages, { [page]: inPage });
       for (let i = 1; i < page; i++) {
@@ -390,26 +560,33 @@
       }
       if (!allowSave) return;
 
+      // Salva se cambia il gradino percentuale O il blocco di testo sulla linea di lettura
+      // (le diminuzioni arrivano qui solo dopo il dwell gestito sopra).
       const rounded = roundToStep(overall, SAVE_STEP);
-      if (rounded <= lastSavedOverall && inPage < 100) return;
+      const anchorChanged = anchorKey !== lastSavedAnchorKey;
+      if (rounded === lastSavedOverall && !anchorChanged && inPage < 100) return;
 
       record.pages[page]      = inPage;
       record.last_page        = page;
       record.percent_overall  = overall;
+      record.anchor           = anchor ? Object.assign({ page }, anchor) : null;
       record.updated_at       = new Date().toISOString();
       lastSavedOverall        = rounded;
+      lastSavedAnchorKey      = anchorKey;
       maxOverallReached       = Math.max(maxOverallReached, overall);
 
-      if (DEBUG) dlog('SAVE', { page, inPage, overall, rounded, pages: record.pages });
+      if (DEBUG) dlog('SAVE', { page, inPage, overall, rounded, anchor: record.anchor, pages: record.pages });
 
       if (isLogged) {
         apiFetch('/progress', {
           method:'POST',
+          keepalive: !!(opts && opts.unloading),
           body:{
             post_id: postCtx.id,
             pages: record.pages,
             last_page: record.last_page,
             total_pages: record.total_pages,
+            anchor: record.anchor,
             status: 'reading'
           }
         }).catch(()=>{});
@@ -426,7 +603,26 @@
 
     window.addEventListener('scroll', onScroll, { passive:true });
     window.addEventListener('resize', onResize, { passive:true });
-    window.addEventListener('beforeunload', () => { try{ saveIfNeeded(); }catch{} }, { capture:true });
+    // Su mobile beforeunload spesso non scatta: usa anche pagehide / visibilitychange
+    const flush = () => { try{ saveIfNeeded({ unloading: true }); }catch{} };
+    window.addEventListener('beforeunload', flush, { capture:true });
+    window.addEventListener('pagehide', flush, { capture:true });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+
+    return {
+      release() { held = false; if (DEBUG) dlog('tracker released'); },
+      // "Annulla" sul prompt: si riparte da zero, senza la protezione anti-regressione
+      resetBaseline() {
+        for (let i=1;i<=postCtx.totalPages;i++) record.pages[i]=0;
+        record.percent_overall = 0;
+        record.anchor = null;
+        maxOverallReached = 0;
+        lastSavedOverall = -1;
+        lastSavedAnchorKey = null;
+        decStartTs = null;
+        lastOverallForDwell = null;
+      }
+    };
   }
 
   function markHasReadings(has) {
@@ -724,7 +920,7 @@
         if (DEBUG) dlog('sync → server', { pid, lrec });
         try {
           await apiFetch('/progress', { method:'POST', body:{
-            post_id:Number(pid), pages:lrec.pages||{}, last_page:lrec.last_page||1, total_pages:lrec.total_pages||1, status:lrec.status||'reading'
+            post_id:Number(pid), pages:lrec.pages||{}, last_page:lrec.last_page||1, total_pages:lrec.total_pages||1, anchor:lrec.anchor||null, status:lrec.status||'reading'
           }});
         } catch (e) { if (DEBUG) dlog('sync error', e); }
       } else {
@@ -753,15 +949,27 @@
       }
       setVisit(postCtx.id, true);
 
+      // Un solo record di partenza, condiviso da prompt e tracker
+      let rec = null;
+      if (isLogged) {
+        try { const prog = await apiFetch('/progress'); rec = (prog && prog[postCtx.id]) || null; } catch {}
+      } else {
+        const store = readLocal();
+        rec = (store && store[postCtx.id]) || null;
+      }
+
+      const tracker = startTracking(postCtx, rec);
+
       const params = new URLSearchParams(location.search);
       const pos = params.has('czcr_pos') ? parseFloat(params.get('czcr_pos')) : null;
       if (!isNaN(pos) && pos !== null) {
         requestAnimationFrame(() => scrollToPercent(clamp(pos, 0, 100)));
-      } else {
-        maybeOfferResume(postCtx);
+        tracker && tracker.release();
+      } else if (consumePendingJump(postCtx)) {
+        tracker && tracker.release();
+      } else if (!maybeOfferResume(postCtx, rec, tracker)) {
+        tracker && tracker.release();
       }
-
-      startTracking(postCtx);
     }
 
     bindMarkToggle(postCtx);
